@@ -153,7 +153,7 @@ Sustituye al PPTX de calendario y piezas. Se construyó cuando el trabajo multic
 ## Bloqueos / pendiente externo
 - Crear el proyecto de Supabase, aplicar migraciones, variables de entorno, primeras administradoras (README).
 - No se pudo crear `.env.example` (permisos del entorno): la plantilla está en `env.example`. Renombrar si se quiere.
-- Sin despliegue. El código está en la rama `multi-client-content-slides` (2026-11-13); `main` no se ha tocado.
+- Sin despliegue. El código está en `main` (2026-11-13).
 - La revisión final de todo el proyecto (multi-cliente + diapositivas juntos) no se ha hecho: se canceló a medias.
 
 ## Siguiente paso
