@@ -61,7 +61,7 @@ export function AssetUploader({ deliverableId, count, label }: { deliverableId: 
     router.refresh();
   };
 
-  if (room <= 0) return <p className="text-xs text-muted">Has llegado al máximo de {MAX_ASSETS} archivos.</p>;
+  if (room <= 0) return <p className="text-xs text-muted">Has llegado al máximo de <span className="font-mono">{MAX_ASSETS}</span> archivos.</p>;
   return (
     <div>
       <input ref={input} type="file" multiple accept={ASSET_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden

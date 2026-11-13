@@ -11,7 +11,7 @@ export default async function PasswordPage() {
   if (!(await getSessionUserId())) redirect("/login");
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <h1 className="mb-4 text-xl font-medium">Elige tu contraseña</h1>
+      <h1 className="page-title mb-4">Elige tu contraseña</h1>
       <div className="card p-5">
         <ActionForm action={setPasswordAction} submitLabel="Guardar contraseña">
           <div className="space-y-3">

@@ -14,6 +14,8 @@ export type ActionState = {
   /** Ya existen recursos con la misma URL. */
   duplicates?: { id: string; title: string }[];
   notice?: string;
+  /** Hecho, pero con algo que la persona debe saber (p. ej. no se pudo reenviar un email). Se muestra como aviso. */
+  warning?: string;
   /** Enlace al registro recién creado (creación rápida sin salir de la página). */
   href?: string;
 } | null;

@@ -13,7 +13,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3917", locale: "es-ES", timezoneId: "Europe/Madrid" },
   webServer: {
     command: "npm run build && npx next start -p 3917",
-    env: { AMAPOLA_DEMO: "1" },
+    env: { WORKSPACE_DEMO: "1" },
     url: "http://127.0.0.1:3917/login",
     reuseExistingServer: true,
     timeout: 180_000,

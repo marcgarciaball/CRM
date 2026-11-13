@@ -18,7 +18,7 @@ export default async function ProfilePage() {
             <input id="f-name" name="display_name" required maxLength={80} defaultValue={user.display_name} className="field" />
           </Field>
         </ActionForm>
-        <p className="mt-4 text-sm text-muted">Rol: {ROLE_LABEL[user.role]}. Solo administración puede cambiar roles.</p>
+        <p className="mt-4 text-sm text-muted">Rol: <span className="font-mono uppercase">{ROLE_LABEL[user.role]}</span>. Solo administración puede cambiar roles.</p>
       </Section>
     </div>
   );

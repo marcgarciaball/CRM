@@ -117,11 +117,11 @@ const urlKey = (url: string) => url.toLowerCase().replace(/\/+$/, "");
 
 export type Resource = {
   id: string; client_id: string; client_name: string; title: string; url: string; category: Category; description: string;
-  created_by_name: string | null; created_at: Date; content_updated_at: Date | null; version: number;
+  created_by: string | null; created_by_name: string | null; created_at: Date; content_updated_at: Date | null; version: number;
 };
 const RESOURCE_SELECT = `
   select r.id, r.client_id, cl.name as client_name, r.title, r.url, r.category, r.description,
-         p.display_name as created_by_name, r.created_at, r.content_updated_at, r.version
+         r.created_by, p.display_name as created_by_name, r.created_at, r.content_updated_at, r.version
     from resources r
     join clients cl on cl.id = r.client_id
     left join profiles p on p.id = r.created_by`;

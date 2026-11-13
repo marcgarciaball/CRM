@@ -90,6 +90,8 @@ export function ActionForm({
         </div>
       ) : state?.error ? (
         <p role="alert" className="mt-3 border border-st-danger-fg bg-st-danger-bg px-3 py-2 text-sm text-st-danger-fg">{state.error}</p>
+      ) : state?.ok && state.warning && !pending ? (
+        <p role="alert" className="mt-3 border border-ink bg-st-warn-bg px-3 py-2 text-sm text-st-warn-fg">{state.warning}</p>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button type="submit" className={submitClassName ?? "btn btn-primary"} disabled={pending} aria-busy={pending}>
@@ -123,6 +125,7 @@ export function ActionButton({
         {children}
       </button>
       {state?.error && <span role="alert" className="block w-full text-xs text-st-danger-fg">{state.error}</span>}
+      {!pending && state?.ok && state.notice && <span role="status" className="block w-full text-xs text-muted">{state.notice}</span>}
     </>
   );
 }

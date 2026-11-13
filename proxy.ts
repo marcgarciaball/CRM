@@ -12,8 +12,8 @@ export async function proxy(request: NextRequest) {
   const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const toLogin = () => NextResponse.redirect(new URL("/login", request.url));
 
-  if (process.env.AMAPOLA_DEMO === "1") {
-    return isPublic || request.cookies.has("amapola_demo_user") ? NextResponse.next() : toLogin();
+  if (process.env.WORKSPACE_DEMO === "1") {
+    return isPublic || request.cookies.has("workspace_demo_user") ? NextResponse.next() : toLogin();
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

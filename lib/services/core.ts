@@ -46,15 +46,15 @@ export async function setArchived(q: Q, table: "campaigns" | "deliverables" | "t
   await q(`update ${table} set archived_at = case when $2 then now() else null end where id = $1`, [id, archived]);
 }
 
-/** Eliminación definitiva: RLS solo la permite a administración. */
+/** Eliminación definitiva: RLS solo la permite a la propiedad del cliente del registro (y no en un cliente archivado). */
 export async function deletePermanently(q: Q, table: Versioned, id: string) {
   const rows = await q(`delete from ${table} where id = $1 returning id`, [id]);
-  if (rows.length === 0) throw new AppError("Solo administración puede eliminar definitivamente.", "forbidden");
+  if (rows.length === 0) throw new AppError("Solo una persona propietaria del cliente puede eliminar definitivamente.", "forbidden");
 }
 
 // ── Comentarios e historial ────────────────────────────────────────────────
 export type Comment = { id: string; body: string; created_at: Date; created_by: string | null; author_name: string | null };
-export type Activity = { id: string; action: string; detail: Record<string, string | number | null>; created_at: Date; actor_name: string | null };
+export type Activity = { id: string; action: string; detail: Record<string, string | number | null>; created_at: Date; actor_id: string | null; actor_name: string | null };
 export type EntityType = "deliverable" | "task";
 
 export function listComments(q: Q, type: EntityType, id: string): Promise<Comment[]> {
@@ -74,7 +74,7 @@ export async function deleteComment(q: Q, id: string) {
 }
 export function listActivity(q: Q, type: EntityType, id: string): Promise<Activity[]> {
   return q<Activity>(
-    `select a.id::text, a.action, a.detail, a.created_at, p.display_name as actor_name
+    `select a.id::text, a.action, a.detail, a.created_at, a.actor_id, p.display_name as actor_name
        from activity_log a left join profiles p on p.id = a.actor_id
       where a.entity_type = $1 and a.entity_id = $2 order by a.created_at desc, a.id desc limit 100`,
     [type, id],

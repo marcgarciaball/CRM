@@ -12,8 +12,8 @@ type TemplateTask = { key: string; title: string; suggestedAssigneeId: string | 
 export function TemplateFields({ people, tasks, defaultOwner }: { people: Person[]; tasks: TemplateTask[]; defaultOwner?: string }) {
   const [on, setOn] = useState(false);
   return (
-    <fieldset className="mt-4 border border-line p-3">
-      <legend className="px-1 font-mono text-xs font-medium">Plantilla</legend>
+    <fieldset className="mt-4 border border-ink p-3">
+      <legend className="px-1 font-mono text-xs font-medium uppercase">Plantilla</legend>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" name="use_template" className="mt-1" checked={on} onChange={(e) => setOn(e.target.checked)} />
         <span>Usar la plantilla «Campaña de newsletter» <span className="text-muted">(crea una newsletter y sus tareas; si no, la campaña empieza vacía)</span></span>
@@ -39,9 +39,9 @@ export function TemplateFields({ people, tasks, defaultOwner }: { people: Person
           </div>
           <div>
             <p className="label">Tareas sugeridas: confirma quién y cuándo</p>
-            <ul className="space-y-2">
+            <ul className="border-t border-ink">
               {tasks.map((t) => (
-                <li key={t.key} className="grid items-end gap-2 border border-line bg-bg p-2 sm:grid-cols-[auto_2fr_1fr_1fr]">
+                <li key={t.key} className="grid items-end gap-2 border-b border-line py-2 sm:grid-cols-[auto_2fr_1fr_1fr]">
                   <input type="hidden" name="task_key" value={t.key} />
                   <label className="flex items-center gap-1.5 pb-2 text-xs">
                     <input type="checkbox" name={`task_on_${t.key}`} defaultChecked /> Crear

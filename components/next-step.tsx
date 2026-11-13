@@ -1,6 +1,6 @@
 import { transitionDeliverableAction } from "@/app/actions/work";
 import { formatDate, formatInstant } from "@/lib/dates";
-import { DELIVERABLE_STATUS_LABEL, DELIVERABLE_TRANSITIONS, type DeliverableStatus } from "@/lib/labels";
+import { DELIVERABLE_STATUS_LABEL, DELIVERABLE_TRANSITIONS, personName, type DeliverableStatus } from "@/lib/labels";
 import type { Deliverable } from "@/lib/services/deliverables";
 import { ActionButton, ActionForm } from "./action-form";
 import { DeliverableStatusBadge } from "./ui";
@@ -33,9 +33,10 @@ function DateAction({ d, to, label, today }: { d: Deliverable; to: "scheduled" |
 
 /**
  * Un solo paso siguiente, claro para quien lo mira. El resto de cambios posibles
- * queda en «Otras opciones». Las reglas las hace cumplir la base de datos.
+ * queda en «Otras opciones». Las reglas las hace cumplir la base de datos. `isOwner`: propiedad del cliente
+ * (puede validar); `readOnly`: cliente archivado, se muestra el estado sin acciones.
  */
-export function NextStep({ d, isAdmin, today }: { d: Deliverable; isAdmin: boolean; today: string }) {
+export function NextStep({ d, isOwner, today, readOnly = false }: { d: Deliverable; isOwner: boolean; today: string; readOnly?: boolean }) {
   const step = STEP_OF[d.status];
   const go = (to: DeliverableStatus, label: string, primary = true) => (
     <ActionButton action={transitionDeliverableAction} fields={{ id: d.id, to }} className={primary ? "btn btn-accent" : "btn btn-secondary"}>{label}</ActionButton>
@@ -53,7 +54,7 @@ export function NextStep({ d, isAdmin, today }: { d: Deliverable; isAdmin: boole
       action = go("in_review", "Pedir revisión de nuevo"); shown = ["in_review"];
       break;
     case "in_review":
-      if (isAdmin) {
+      if (isOwner) {
         message = "Revisa el copy, la creatividad y los materiales. Si está bien, valídalo.";
         action = <>{go("approved", "Validar")}{go("changes_requested", "Pedir cambios", false)}</>; shown = ["approved", "changes_requested"];
       } else {
@@ -61,7 +62,7 @@ export function NextStep({ d, isAdmin, today }: { d: Deliverable; isAdmin: boole
       }
       break;
     case "approved":
-      message = `Validado por ${d.approved_by_name ?? "la propiedad del cliente"}. Regístralo como programado cuando lo dejes preparado.`;
+      message = `Validado por ${personName(d.approved_by, d.approved_by_name, "la propiedad del cliente")}. Regístralo como programado cuando lo dejes preparado.`;
       action = <DateAction d={d} to="scheduled" label="Marcar como programado" today={today} />; shown = ["scheduled"];
       break;
     case "scheduled":
@@ -86,15 +87,16 @@ export function NextStep({ d, isAdmin, today }: { d: Deliverable; isAdmin: boole
     default:
       message = `Publicado el ${formatDate(d.published_on, today)}. Si cambias el copy o un material aprobado, se crea una revisión nueva que hay que volver a aprobar; el historial de publicación se conserva.`;
   }
-  const others = DELIVERABLE_TRANSITIONS[d.status].filter((t) => !shown.includes(t.to) && !(t.adminOnly && !isAdmin) && !(t.needsApproval && !approvalCurrent));
+  const others = readOnly ? [] : DELIVERABLE_TRANSITIONS[d.status].filter((t) => !shown.includes(t.to) && !(t.ownerOnly && !isOwner) && !(t.needsApproval && !approvalCurrent));
+  if (readOnly) action = null;
   const staleApproval = d.approved_revision !== null && d.approved_revision !== d.revision;
   return (
     <section className="card mb-4 p-4 sm:p-5" aria-label="Estado y siguiente paso">
       <ol className="mb-4 flex gap-1" aria-label="Fases">
         {STEPS.map((s, i) => (
           <li key={s} className="flex-1" aria-current={i === step ? "step" : undefined}>
-            <div className={`h-1.5 rounded-pill ${i < step ? "bg-accent" : i === step ? "bg-ink" : "bg-st-neutral-bg"}`} />
-            <span className={`mt-1 block text-xs ${i === step ? "font-semibold" : "text-muted"} ${i === step ? "" : "hidden sm:block"}`}>{s}</span>
+            <div className={`h-1.5 ${i < step ? "bg-accent" : i === step ? "bg-ink" : "bg-line"}`} />
+            <span className={`mt-1 block font-mono text-[11px] tracking-wide uppercase ${i === step ? "font-medium text-ink" : "text-muted"} ${i === step ? "" : "hidden sm:block"}`}>{s}</span>
           </li>
         ))}
       </ol>
@@ -103,8 +105,8 @@ export function NextStep({ d, isAdmin, today }: { d: Deliverable; isAdmin: boole
         <p className="text-sm">{message}</p>
       </div>
       {staleApproval && (
-        <p className="mt-2 rounded-lg bg-st-warn-bg px-3 py-2 text-sm text-st-warn-fg">
-          El contenido ha cambiado desde la última validación ({d.approved_by_name ?? "la propiedad del cliente"}, {formatInstant(d.approved_at!)}), así que necesita validarse de nuevo.
+        <p className="mt-2 border border-ink bg-st-warn-bg px-3 py-2 text-sm text-st-warn-fg">
+          El contenido ha cambiado desde la última validación ({personName(d.approved_by, d.approved_by_name, "la propiedad del cliente")}, <span className="font-mono">{formatInstant(d.approved_at!)}</span>), así que necesita validarse de nuevo.
         </p>
       )}
       {action && <div className="mt-3 flex flex-wrap items-end gap-2">{action}</div>}

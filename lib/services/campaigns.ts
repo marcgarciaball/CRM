@@ -8,13 +8,13 @@ export type Campaign = {
   id: string; client_id: string; client_name: string; name: string; objective: string; description: string;
   start_date: string | null; end_date: string | null; status: CampaignStatus;
   owner_id: string | null; owner_name: string | null;
-  archived_at: Date | null; archived_by_name: string | null; version: number;
+  archived_at: Date | null; archived_by: string | null; archived_by_name: string | null; version: number;
   deliverables_total: number; deliverables_published: number; tasks_total: number; tasks_done: number;
 };
 
 const SELECT = `
   select c.id, c.client_id, cl.name as client_name, c.name, c.objective, c.description, c.start_date, c.end_date, c.status,
-         c.owner_id, o.display_name as owner_name, c.archived_at, ab.display_name as archived_by_name, c.version,
+         c.owner_id, o.display_name as owner_name, c.archived_at, c.archived_by, ab.display_name as archived_by_name, c.version,
          (select count(*)::int from deliverables d where d.campaign_id = c.id and d.archived_at is null and d.status <> 'discarded') as deliverables_total,
          (select count(*)::int from deliverables d where d.campaign_id = c.id and d.archived_at is null and d.status = 'published') as deliverables_published,
          (select count(*)::int from tasks t left join deliverables d on d.id = t.deliverable_id

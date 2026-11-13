@@ -15,6 +15,12 @@ export function text(fd: FormData, key: string, label: string, opts: { max?: num
   if (v.length > (opts.max ?? 200)) throw new AppError(`${label[0].toUpperCase()}${label.slice(1)}: máximo ${opts.max ?? 200} caracteres.`);
   return v;
 }
+/** Email normalizado (sin espacios alrededor y en minúsculas): «Ana@X.com » y «ana@x.com» son la misma persona. */
+export function email(fd: FormData, key = "email"): string {
+  const v = text(fd, key, "el email", { required: true, max: 254 }).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw new AppError("El email no es válido.");
+  return v;
+}
 export function optUuid(fd: FormData, key: string): string | null {
   const v = raw(fd, key);
   if (!v) return null;

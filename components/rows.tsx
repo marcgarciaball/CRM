@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
-import { TASK_STATUS_LABEL } from "@/lib/labels";
+import { TASK_STATUS_LABEL, personName } from "@/lib/labels";
+import { campaignPath, deliverablePath, taskPath } from "@/lib/paths";
 import type { Deliverable } from "@/lib/services/deliverables";
 import type { Material } from "@/lib/services/resources";
 import type { Task } from "@/lib/services/tasks";
@@ -51,22 +52,35 @@ export function InlineMaterials({ own, inherited = [], inheritedLabel }: { own: 
 export function DueDate({ date, today, done }: { date: string | null; today: string; done?: boolean }) {
   const overdue = !!date && !done && date < today;
   return (
-    <span className={`text-[13px] whitespace-nowrap ${overdue ? "font-medium text-st-danger-fg" : "text-muted"}`}>
+    <span className={`font-mono text-[13px] whitespace-nowrap ${overdue ? "font-medium text-st-danger-fg" : "text-muted"}`}>
       {formatDate(date, today)}{overdue && " · vencida"}
     </span>
   );
 }
 
-/** Fila de tarea: estado, persona y fecha se cambian aquí mismo, sin abrir la tarea. */
-export async function TaskItem({ task, today, materials, showAssignee = true }: { task: Task; today: string; materials?: GroupedMaterials; showAssignee?: boolean }) {
-  const people = await peopleOptions();
+/** Opciones de persona; si quien figura ya no está entre ellas (desactivada o antiguo miembro), se añade con su nombre. */
+async function personOptions(clientId: string, id: string | null, name: string | null) {
+  const people = await peopleOptions(clientId);
+  return id && !people.some((p) => p.id === id) ? [...people, { id, label: personName(id, name, "") }] : people;
+}
+
+/**
+ * Fila de tarea: estado, persona y fecha se cambian aquí mismo, sin abrir la tarea.
+ * `readOnly` (cliente archivado): los mismos datos como texto.
+ */
+export async function TaskItem({ task, today, materials, showAssignee = true, readOnly = false }: {
+  task: Task; today: string; materials?: GroupedMaterials; showAssignee?: boolean; readOnly?: boolean;
+}) {
+  const people = readOnly ? [] : await personOptions(task.client_id, task.assignee_id, task.assignee_name);
   const done = task.status === "done";
   const context = [task.deliverable_title, task.campaign_name].filter(Boolean).join(" · ");
   return (
     <li className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line py-2.5 last:border-b-0">
-      <QuickSelect kind="task" id={task.id} field="status" value={task.status} options={TASK_STATUS_OPTIONS} label={`Estado de «${task.title}»`} />
+      {readOnly
+        ? <span className="text-[13px] text-muted">{TASK_STATUS_LABEL[task.status]}</span>
+        : <QuickSelect kind="task" id={task.id} field="status" value={task.status} options={TASK_STATUS_OPTIONS} label={`Estado de «${task.title}»`} />}
       <div className="min-w-48 flex-1">
-        <Link href={`/trabajo/tareas/${task.id}`} className={`font-medium hover:underline ${done ? "text-muted line-through" : ""}`}>{task.title}</Link>
+        <Link href={taskPath(task)} className={`font-medium hover:underline ${done ? "text-muted line-through" : ""}`}>{task.title}</Link>
         {task.priority === "high" && <span className="ml-2"><PriorityBadge priority={task.priority} /></span>}
         {context && <p className="truncate text-[13px] text-muted">{context}</p>}
         {materials && (
@@ -77,25 +91,34 @@ export async function TaskItem({ task, today, materials, showAssignee = true }: 
           </div>
         )}
       </div>
-      {showAssignee && <QuickSelect kind="task" id={task.id} field="assignee_id" value={task.assignee_id} options={people} empty="Sin asignar" label={`Persona asignada a «${task.title}»`} />}
-      <QuickDate kind="task" id={task.id} field="due_date" value={task.due_date} label={`Fecha límite de «${task.title}»`} danger={!!task.due_date && !done && task.due_date < today} />
+      {readOnly ? (
+        <>
+          {showAssignee && <span className="text-[13px] text-muted">{personName(task.assignee_id, task.assignee_name, "Sin asignar")}</span>}
+          <DueDate date={task.due_date} today={today} done={done} />
+        </>
+      ) : (
+        <>
+          {showAssignee && <QuickSelect kind="task" id={task.id} field="assignee_id" value={task.assignee_id} options={people} empty="Sin asignar" label={`Persona asignada a «${task.title}»`} />}
+          <QuickDate kind="task" id={task.id} field="due_date" value={task.due_date} label={`Fecha límite de «${task.title}»`} danger={!!task.due_date && !done && task.due_date < today} />
+        </>
+      )}
     </li>
   );
 }
 
-/** Fila de entregable: fecha prevista y responsable editables; el estado cambia desde su ficha. */
-export async function DeliverableItem({ d, today, materials }: { d: Deliverable; today: string; materials?: GroupedMaterials; showDate?: boolean }) {
-  const people = await peopleOptions();
+/** Fila de entregable: fecha prevista y responsable editables (salvo `readOnly`); el estado cambia desde su ficha. */
+export async function DeliverableItem({ d, today, materials, readOnly = false }: { d: Deliverable; today: string; materials?: GroupedMaterials; readOnly?: boolean }) {
+  const people = readOnly ? [] : await personOptions(d.client_id, d.owner_id, d.owner_name);
   const late = !!d.planned_date && d.planned_date < today && d.status !== "published" && d.status !== "discarded";
   return (
     <li className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line py-2.5 last:border-b-0">
       <DeliverableStatusBadge status={d.status} />
       <div className="min-w-48 flex-1">
-        <Link href={`/trabajo/entregables/${d.id}`} className="font-medium hover:underline">{d.title}</Link>
+        <Link href={deliverablePath(d)} className="font-medium hover:underline">{d.title}</Link>
         <p className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted">
           <ChannelBadge channel={d.channel} />
-          {d.campaign_name && <Link href={`/campanas/${d.campaign_id}`} className="truncate hover:underline">{d.campaign_name}</Link>}
-          {d.published_on && <span>Publicado el {formatDate(d.published_on, today)}</span>}
+          {d.campaign_name && d.campaign_id && <Link href={campaignPath({ client_id: d.client_id, id: d.campaign_id })} className="truncate hover:underline">{d.campaign_name}</Link>}
+          {d.published_on && <span>Publicado el <span className="font-mono">{formatDate(d.published_on, today)}</span></span>}
           {late && <span className="font-medium text-st-danger-fg">Atrasado</span>}
         </p>
         {materials && (
@@ -104,8 +127,17 @@ export async function DeliverableItem({ d, today, materials }: { d: Deliverable;
           </div>
         )}
       </div>
-      <QuickSelect kind="deliverable" id={d.id} field="owner_id" value={d.owner_id} options={people} empty="Sin responsable" label={`Responsable de «${d.title}»`} />
-      <QuickDate kind="deliverable" id={d.id} field="planned_date" value={d.planned_date} label={`Fecha prevista de «${d.title}»`} danger={late} />
+      {readOnly ? (
+        <>
+          <span className="text-[13px] text-muted">{personName(d.owner_id, d.owner_name, "Sin responsable")}</span>
+          <span className="font-mono text-[13px] text-muted">{formatDate(d.planned_date, today)}</span>
+        </>
+      ) : (
+        <>
+          <QuickSelect kind="deliverable" id={d.id} field="owner_id" value={d.owner_id} options={people} empty="Sin responsable" label={`Responsable de «${d.title}»`} />
+          <QuickDate kind="deliverable" id={d.id} field="planned_date" value={d.planned_date} label={`Fecha prevista de «${d.title}»`} danger={late} />
+        </>
+      )}
     </li>
   );
 }

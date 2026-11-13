@@ -191,7 +191,7 @@ describe("enlaces y materiales", () => {
       client_id: c.a, title: "Maquetar", assignee_id: t.ainhoa, due_date: null, priority: "low", campaign_id: null, deliverable_id: deliverableId }));
 
     const folder = await as(t.maite, (q) => addNewLink(q, { type: "campaign", id: campaignId }, { title: "Carpeta de campaña", url: "https://drive.example.test/folder" }, { is_primary: true }));
-    await as(t.maite, (q) => addNewLink(q, { type: "campaign", id: campaignId }, { title: "Landing", url: "https://byamapolalab.com/pages/demo" }));
+    await as(t.maite, (q) => addNewLink(q, { type: "campaign", id: campaignId }, { title: "Landing", url: "https://demo.myshopify.com/pages/demo" }));
     const design = await as(t.ainhoa, (q) => addNewLink(q, { type: "deliverable", id: deliverableId }, { title: "Diseño de Ainhoa", url: "https://figma.example.test/d" }, { is_primary: true }));
     await as(t.sara, (q) => addNewLink(q, { type: "deliverable", id: deliverableId }, { title: "Texto de Sara", url: "https://docs.example.test/t" }));
     await as(t.ainhoa, (q) => addNewLink(q, { type: "task", id: taskId }, { title: "Exportables", url: "https://drive.example.test/export" }));
@@ -339,9 +339,9 @@ describe("autorización", () => {
     await as(t.maite, (q) => q("update profiles set role = 'admin' where id = $1", [t.ecommerce]));
   });
 
-  it("solo administración elimina definitivamente; la autoría no se puede falsificar", async () => {
+  it("solo la propiedad del cliente elimina definitivamente; la autoría no se puede falsificar", async () => {
     const id = await as(t.sara, (q) => createCampaign(q, { client_id: c.a, name: "Para borrar", start_date: null, end_date: null, owner_id: null }));
-    await expect(as(t.sara, (q) => deletePermanently(q, "campaigns", id))).rejects.toThrow(/administración/);
+    await expect(as(t.sara, (q) => deletePermanently(q, "campaigns", id))).rejects.toThrow(/propietaria del cliente/);
     expect(await as(t.sara, (q) => getCampaign(q, id))).not.toBeNull();
     await as(t.sara, (q) => q("update campaigns set archived_at = now() where id = $1", [id]));
     expect((await as(t.sara, (q) => getCampaign(q, id)))!.archived_by_name).toBe("Sara G.");
@@ -404,17 +404,17 @@ describe("novedades y búsqueda", () => {
     const d = await as(t.ainhoa, (q) => createDeliverable(q, newsletter(null, { title: "Anuncio Zafiro" })));
     await as(t.ainhoa, (q) => transitionDeliverable(q, d, "in_review"));
 
-    const mine = await as(t.ainhoa, (q) => listNotices(q, t.ainhoa, false));
+    const mine = await as(t.ainhoa, (q) => listNotices(q, t.ainhoa));
     expect(mine.filter((n) => n.unread).map((n) => [n.action, n.actor]).sort()).toEqual([["comment", "Maite"], ["created", "Maite"]]);
-    const admin = await as(t.maite, (q) => listNotices(q, t.maite, true));
-    const unread = admin.filter((n) => n.unread);
+    const owner = await as(t.maite, (q) => listNotices(q, t.maite));
+    const unread = owner.filter((n) => n.unread);
     expect(unread.some((n) => n.action === "status" && n.id === d && n.detail.to === "in_review")).toBe(true);
     expect(unread.some((n) => n.action === "comment" && n.actor === "Ainhoa")).toBe(true);
     // Una miembro no recibe las revisiones pendientes de otras personas.
-    expect((await as(t.elisa, (q) => listNotices(q, t.elisa, false))).some((n) => n.id === d)).toBe(false);
+    expect((await as(t.elisa, (q) => listNotices(q, t.elisa))).some((n) => n.id === d)).toBe(false);
 
     await as(t.ainhoa, (q) => markNoticesSeen(q, t.ainhoa));
-    expect((await as(t.ainhoa, (q) => listNotices(q, t.ainhoa, false))).filter((n) => n.unread)).toHaveLength(0);
+    expect((await as(t.ainhoa, (q) => listNotices(q, t.ainhoa))).filter((n) => n.unread)).toHaveLength(0);
 
     const hits = await as(t.sara, (q) => searchAll(q, "zafiro"));
     expect(hits.map((h) => h.type).sort()).toEqual(["deliverable", "task"]);

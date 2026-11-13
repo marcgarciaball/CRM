@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Driver } from "@/lib/db/types";
-import { addComment, deleteComment, deletePermanently } from "@/lib/services/core";
+import { addComment, deleteComment, deletePermanently, setArchived } from "@/lib/services/core";
 import { createCampaign, getCampaign, listCampaigns, updateCampaign } from "@/lib/services/campaigns";
+import { clientSummaries, createClient, setClientArchived } from "@/lib/services/clients";
+import { listNotices, markNoticesSeen, searchAll } from "@/lib/services/inbox";
 import { createDeliverable, getDeliverable, listDeliverables, transitionDeliverable, updateDeliverable } from "@/lib/services/deliverables";
 import { addNewLink, attachResource, createResource, listResources } from "@/lib/services/resources";
-import { createTask, getTask, listTasks, updateTask } from "@/lib/services/tasks";
+import { createTask, getTask, listTasks, setTaskStatus, updateTask } from "@/lib/services/tasks";
 import { as, setupDb, type Clients, type Team } from "./helpers";
 
 let driver: Driver;
@@ -138,7 +140,9 @@ describe("aislamiento entre clientes", () => {
     expect((await as(t.elisa, (q) => getDeliverable(q, deliverable)))!.status).toBe("in_review");
 
     for (const [table, id] of [["campaigns", campaign], ["deliverables", deliverable], ["tasks", task]] as const) {
-      await expect(as(t.elisa, (q) => deletePermanently(q, table, id))).rejects.toMatchObject({ code: "forbidden" });
+      const del = as(t.elisa, (q) => deletePermanently(q, table, id));
+      await expect(del).rejects.toMatchObject({ code: "forbidden" });
+      await expect(del).rejects.toThrow("Solo una persona propietaria del cliente puede eliminar definitivamente.");
     }
     expect(await as(t.elisa, (q) => getCampaign(q, campaign))).not.toBeNull();
 
@@ -260,5 +264,116 @@ describe("aislamiento entre clientes", () => {
     expect(await clientsOf(t.elisa)).toEqual([c.a, c.b].sort());
     expect(await clientsOf(t.sara)).toEqual([c.a]);
     expect(await clientsOf(t.lonely)).toEqual([]);
+  });
+});
+
+describe("novedades, búsqueda y resúmenes entre clientes", () => {
+  it("la búsqueda no devuelve resultados de clientes ajenos y etiqueta el cliente", async () => {
+    const saraHits = await as(t.sara, (q) => searchAll(q, "entregable"));
+    expect(saraHits.length).toBeGreaterThan(0);
+    expect(saraHits.every((h) => h.client_id === c.a && h.client_name === "Cliente A")).toBe(true);
+    expect(saraHits.map((h) => h.id)).not.toContain(fx.b.deliverable);
+
+    // Elisa pertenece a los dos clientes: ve ambos, cada resultado con el nombre de su cliente.
+    for (const term of ["entregable", "tarea", "campaña", "recurso"]) {
+      const hits = await as(t.elisa, (q) => searchAll(q, term));
+      expect(new Set(hits.map((h) => `${h.client_id}|${h.client_name}`))).toEqual(new Set([`${c.a}|Cliente A`, `${c.b}|Cliente B`]));
+    }
+    const types = (await as(t.elisa, (q) => searchAll(q, "recurso"))).filter((h) => h.client_id === c.b).map((h) => h.type);
+    expect(types).toContain("resource");
+    expect(await as(t.lonely, (q) => searchAll(q, "entregable"))).toHaveLength(0);
+
+    // Un cliente archivado no aparece en la búsqueda (aunque se siga leyendo).
+    await as(t.ecommerce, (q) => q("update clients set archived_at = now() where id = $1", [c.b]));
+    try {
+      const hits = await as(t.elisa, (q) => searchAll(q, "entregable"));
+      expect(hits.length).toBeGreaterThan(0);
+      expect(hits.every((h) => h.client_id === c.a)).toBe(true);
+    } finally {
+      await as(t.ecommerce, (q) => q("update clients set archived_at = null where id = $1", [c.b]));
+    }
+  });
+
+  it("«en revisión» avisa a las propietarias de ese cliente, no a las de otro", async () => {
+    for (const who of [t.maite, t.ecommerce, t.ainhoa, t.elisa]) await as(who, (q) => markNoticesSeen(q, who));
+
+    // Un entregable de B: lo pide Elisa; avisan ecommerce (propietaria de B) y no Maite (propietaria de A, sin acceso a B).
+    const inB = await as(t.elisa, (q) => createDeliverable(q, { client_id: c.b, title: "Revisión cruzada B", channel: "other", campaign_id: null, owner_id: null, planned_date: null }));
+    await as(t.elisa, (q) => transitionDeliverable(q, inB, "in_review"));
+    const review = (list: Awaited<ReturnType<typeof listNotices>>, id: string) =>
+      list.filter((n) => n.id === id && n.action === "status" && n.detail.to === "in_review");
+    const ecommerce = review(await as(t.ecommerce, (q) => listNotices(q, t.ecommerce)), inB);
+    expect(ecommerce).toHaveLength(1);
+    expect(ecommerce[0]).toMatchObject({ unread: true, actor: "Elisa", client_id: c.b, client_name: "Cliente B" });
+    expect(review(await as(t.maite, (q) => listNotices(q, t.maite)), inB)).toHaveLength(0);
+    expect(review(await as(t.ainhoa, (q) => listNotices(q, t.ainhoa)), inB)).toHaveLength(0);
+
+    // Uno de A: lo pide Ainhoa; avisan las dos propietarias de A, no la miembro Elisa.
+    const inA = await as(t.ainhoa, (q) => createDeliverable(q, { client_id: c.a, title: "Revisión cruzada A", channel: "other", campaign_id: null, owner_id: null, planned_date: null }));
+    await as(t.ainhoa, (q) => transitionDeliverable(q, inA, "in_review"));
+    for (const who of [t.maite, t.ecommerce]) {
+      const mine = review(await as(who, (q) => listNotices(q, who)), inA);
+      expect(mine).toHaveLength(1);
+      expect(mine[0]).toMatchObject({ client_id: c.a, client_name: "Cliente A" });
+    }
+    expect(review(await as(t.elisa, (q) => listNotices(q, t.elisa)), inA)).toHaveLength(0);
+    // Quien lo pide no se avisa a sí misma.
+    expect(review(await as(t.ainhoa, (q) => listNotices(q, t.ainhoa)), inA)).toHaveLength(0);
+  });
+
+  it("clientSummaries cuenta por cliente", async () => {
+    const today = "2026-11-11";
+    const summaries = (who: string) => as(who, (q) => clientSummaries(q, today));
+
+    // Elisa pertenece a A y a B: una fila por cliente, por nombre, con su papel y los recuentos del cliente.
+    const elisa = await summaries(t.elisa);
+    expect(elisa.map((s) => [s.id, s.name, s.my_role])).toEqual([[c.a, "Cliente A", "member"], [c.b, "Cliente B", "member"]]);
+    expect(await summaries(t.sara)).toHaveLength(1);
+    expect(await summaries(t.lonely)).toHaveLength(0);
+    for (const s of elisa) {
+      const inReview = await as(t.elisa, (q) => listDeliverables(q, { status: "in_review", client: s.id }));
+      expect(s.in_review).toBe(inReview.length);
+      const open = await as(t.elisa, (q) => listTasks(q, { open: true, client: s.id }));
+      expect(s.open_tasks).toBe(open.length);
+    }
+
+    // Recuentos exactos en un cliente nuevo (de Sola), para no depender de lo que dejen otras pruebas.
+    const own = await as(t.lonely, (q) => createClient(q, { name: "Cliente C" }));
+    const task = (title: string, due: string | null) =>
+      as(t.lonely, (q) => createTask(q, { client_id: own, title, assignee_id: null, due_date: due, priority: "low", campaign_id: null, deliverable_id: null }));
+    const piece = (title: string, planned: string | null) =>
+      as(t.lonely, (q) => createDeliverable(q, { client_id: own, title, channel: "other", campaign_id: null, owner_id: null, planned_date: planned }));
+    expect(await summaries(t.lonely)).toHaveLength(1);
+    expect((await summaries(t.lonely))[0]).toMatchObject({ id: own, open_tasks: 0, overdue: 0, in_review: 0, next_publication: null });
+
+    await task("Vencida", "2026-11-10");                // abierta y vencida
+    await task("De hoy", today);                         // abierta, no vencida
+    await task("Sin fecha", null);                       // abierta
+    const done = await task("Hecha y vencida", "2026-11-01");
+    await as(t.lonely, (q) => setTaskStatus(q, done, "done"));          // no cuenta
+    const archived = await task("Archivada y vencida", "2026-11-02");
+    await as(t.lonely, (q) => setArchived(q, "tasks", archived, true)); // no cuenta
+
+    const review = await piece("En revisión", null);
+    await as(t.lonely, (q) => transitionDeliverable(q, review, "in_review"));
+    const discarded = await piece("Descartada", "2026-11-12");
+    await as(t.lonely, (q) => transitionDeliverable(q, discarded, "discarded"));
+    const published = await piece("Publicada", "2026-11-13");
+    await as(t.lonely, (q) => transitionDeliverable(q, published, "in_review"));
+    await as(t.lonely, (q) => transitionDeliverable(q, published, "approved"));
+    await as(t.lonely, (q) => transitionDeliverable(q, published, "published", { published_on: today }));
+    const archivedPiece = await piece("Archivada", "2026-11-14");
+    await as(t.lonely, (q) => setArchived(q, "deliverables", archivedPiece, true));
+    await piece("Pasada", "2026-11-09");                // anterior a hoy
+    await piece("Próxima", "2026-11-20");
+    await piece("Más lejana", "2026-12-01");
+
+    expect((await summaries(t.lonely))[0]).toMatchObject({ id: own, open_tasks: 3, overdue: 1, in_review: 1, next_publication: "2026-11-20" });
+    // Con otra fecha de referencia, cambian lo vencido y lo próximo.
+    expect((await as(t.lonely, (q) => clientSummaries(q, "2026-11-21")))[0]).toMatchObject({ overdue: 2, next_publication: "2026-12-01" });
+
+    // Un cliente archivado no aparece.
+    await as(t.lonely, (q) => setClientArchived(q, own, true));
+    expect(await summaries(t.lonely)).toHaveLength(0);
   });
 });

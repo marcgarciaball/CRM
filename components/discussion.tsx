@@ -1,22 +1,25 @@
 import { addCommentAction, deleteCommentAction } from "@/app/actions/work";
 import { formatDate, formatInstant } from "@/lib/dates";
-import { DELIVERABLE_STATUS_LABEL, TASK_STATUS_LABEL } from "@/lib/labels";
+import { DELIVERABLE_STATUS_LABEL, FORMER_MEMBER, TASK_STATUS_LABEL, personName } from "@/lib/labels";
 import type { Activity, Comment, EntityType, Profile } from "@/lib/services/core";
 import { ActionButton, ActionForm } from "./action-form";
 import { Empty, Section } from "./ui";
 
-export function Comments({ type, id, comments, user }: { type: EntityType; id: string; comments: Comment[]; user: Profile }) {
+/** `isOwner`: la propiedad del cliente puede borrar cualquier comentario; `readOnly` (cliente archivado): sin borrar ni comentar. */
+export function Comments({ type, id, comments, user, isOwner, readOnly = false }: {
+  type: EntityType; id: string; comments: Comment[]; user: Profile; isOwner: boolean; readOnly?: boolean;
+}) {
   return (
     <Section id="comentarios" title="Comentarios" count={comments.length}>
       {comments.length === 0 ? <Empty>Sin comentarios todavía.</Empty> : (
-        <ul className="mb-3 space-y-3">
+        <ul className="mb-3">
           {comments.map((c) => (
-            <li key={c.id} className="rounded-lg bg-bg px-3 py-2">
+            <li key={c.id} className="border-b border-line py-2.5 first:pt-0">
               <p className="text-xs text-muted">
-                <span className="font-medium text-ink">{c.author_name ?? "Alguien"}</span> · {formatInstant(c.created_at)}
+                <span className="font-semibold text-ink">{personName(c.created_by, c.author_name, "Alguien")}</span> · <span className="font-mono">{formatInstant(c.created_at)}</span>
               </p>
               <p className="mt-0.5 text-sm break-words whitespace-pre-wrap">{c.body}</p>
-              {(c.created_by === user.id || user.role === "admin") && (
+              {!readOnly && (c.created_by === user.id || isOwner) && (
                 <ActionButton action={deleteCommentAction} fields={{ id: c.id }} confirm="¿Borrar este comentario?" className="mt-1 text-xs text-muted underline">
                   Borrar
                 </ActionButton>
@@ -25,12 +28,14 @@ export function Comments({ type, id, comments, user }: { type: EntityType; id: s
           ))}
         </ul>
       )}
-      <ActionForm action={addCommentAction} submitLabel="Comentar" pendingLabel="Enviando…" resetOnSuccess>
-        <input type="hidden" name="type" value={type} />
-        <input type="hidden" name="id" value={id} />
-        <label className="label" htmlFor={`comment-${id}`}>Nuevo comentario</label>
-        <textarea id={`comment-${id}`} name="body" required maxLength={5000} rows={3} className="field" />
-      </ActionForm>
+      {!readOnly && (
+        <ActionForm action={addCommentAction} submitLabel="Comentar" pendingLabel="Enviando…" resetOnSuccess>
+          <input type="hidden" name="type" value={type} />
+          <input type="hidden" name="id" value={id} />
+          <label className="label" htmlFor={`comment-${id}`}>Nuevo comentario</label>
+          <textarea id={`comment-${id}`} name="body" required maxLength={5000} rows={3} className="field" />
+        </ActionForm>
+      )}
     </Section>
   );
 }
@@ -51,7 +56,8 @@ const CREATIVE_REASON: Record<string, string> = {
 function describe(a: Pick<Activity, "action" | "detail"> & Partial<Activity>, type: EntityType, people: Map<string, string>): string {
   const d = a.detail;
   const status = (s: unknown) => (type === "task" ? TASK_STATUS_LABEL : DELIVERABLE_STATUS_LABEL)[s as never] ?? String(s);
-  const person = (v: unknown) => (v ? people.get(String(v)) ?? "otra persona" : "nadie");
+  // Sin lista de personas (novedades) no se sabe quién es; con ella, quien no está es un antiguo miembro.
+  const person = (v: unknown) => (v ? people.get(String(v)) ?? (people.size > 0 ? FORMER_MEMBER.toLowerCase() : "otra persona") : "nadie");
   const date = (v: unknown) => (v ? formatDate(String(v)) : "sin fecha");
   switch (a.action) {
     case "created": return "creó el registro";
@@ -71,6 +77,7 @@ function describe(a: Pick<Activity, "action" | "detail"> & Partial<Activity>, ty
 
 export { describe as describeActivity };
 
+/** `people`: todas las personas del cliente, también las desactivadas; quien no esté es un antiguo miembro. */
 export function History({ type, activity, people }: { type: EntityType; activity: Activity[]; people: Profile[] }) {
   const names = new Map(people.map((p) => [p.id, p.display_name]));
   if (activity.length === 0) return <Empty>Sin cambios registrados.</Empty>;
@@ -78,8 +85,8 @@ export function History({ type, activity, people }: { type: EntityType; activity
     <ol className="space-y-1.5 text-sm">
       {activity.map((a) => (
         <li key={a.id}>
-          <span className="text-xs text-muted">{formatInstant(a.created_at)} · </span>
-          <span className="font-medium">{a.actor_name ?? "Sistema"}</span> {describe(a, type, names)}
+          <span className="font-mono text-xs text-muted">{formatInstant(a.created_at)} · </span>
+          <span className="font-medium">{personName(a.actor_id, a.actor_name, "Sistema")}</span> {describe(a, type, names)}
         </li>
       ))}
     </ol>

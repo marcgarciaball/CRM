@@ -27,6 +27,8 @@ const SELECT = `
 export type TaskFilters = {
   client?: string; assignee?: string; status?: string; priority?: string; campaign?: string; deliverable?: string;
   from?: string; to?: string; unplanned?: boolean; open?: boolean; archived?: boolean;
+  /** Solo de clientes no archivados (inicio con todos los clientes). */
+  activeClients?: boolean;
 };
 
 /** Orden por urgencia: primero con fecha más próxima, luego prioridad. */
@@ -44,11 +46,12 @@ export function listTasks(q: Q, f: TaskFilters = {}): Promise<Task[]> {
         and ($9::boolean is not true or t.due_date is null)
         and ($10::boolean is not true or t.status <> 'done')
         and ($11::uuid is null or t.client_id = $11)
+        and ($12::boolean is not true or cl.archived_at is null)
       order by (t.status = 'done'), t.due_date asc nulls last,
                case t.priority when 'high' then 0 when 'medium' then 1 else 2 end, t.created_at desc
       limit ${LIST_LIMIT}`,
     [!!f.archived, f.assignee ?? null, f.status ?? null, f.priority ?? null, f.campaign ?? null, f.deliverable ?? null,
-     f.from ?? null, f.to ?? null, f.unplanned ?? null, f.open ?? null, f.client ?? null],
+     f.from ?? null, f.to ?? null, f.unplanned ?? null, f.open ?? null, f.client ?? null, f.activeClients ?? null],
   );
 }
 

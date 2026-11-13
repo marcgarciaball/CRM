@@ -9,9 +9,10 @@ type Existing = { id: string; title: string; url: string };
 /**
  * "Añadir enlace" dentro de cualquier registro (o en la biblioteca si no hay `target`).
  * Solo título y URL son obligatorios. También permite enlazar un recurso que ya existe.
+ * `clientId` es el cliente en el que se está; con `target`, el servidor usa siempre el cliente del registro.
  */
-export function AddLinkForm({ target, existing = [], idPrefix }: {
-  target?: { type: "campaign" | "deliverable" | "task"; id: string }; existing?: Existing[]; idPrefix: string;
+export function AddLinkForm({ clientId, target, existing = [], idPrefix }: {
+  clientId: string; target?: { type: "campaign" | "deliverable" | "task"; id: string }; existing?: Existing[]; idPrefix: string;
 }) {
   const [state, formAction, pending] = useActionState(addLinkAction, null);
   const [mode, setMode] = useState<"new" | "existing">("new");
@@ -42,7 +43,8 @@ export function AddLinkForm({ target, existing = [], idPrefix }: {
   const id = (name: string) => `${idPrefix}-${name}`;
 
   return (
-    <form ref={ref} className="mt-3 rounded-lg bg-bg p-3" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+    <form ref={ref} className="mt-3 border border-ink bg-subtle p-3" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <input type="hidden" name="client_id" value={clientId} />
       {target && (
         <>
           <input type="hidden" name="target_type" value={target.type} />
@@ -112,7 +114,7 @@ export function AddLinkForm({ target, existing = [], idPrefix }: {
         </div>
       )}
       {state?.duplicates && (
-        <div role="alert" className="mt-3 border border-st-warn-fg bg-st-warn-bg p-3 text-sm text-st-warn-fg">
+        <div role="alert" className="mt-3 border border-ink bg-st-warn-bg p-3 text-sm text-st-warn-fg">
           <p className="font-medium">Ya hay un recurso con esta URL: «{state.duplicates[0].title}».</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {target && (

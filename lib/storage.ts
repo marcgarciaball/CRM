@@ -25,7 +25,7 @@ function safe(p: string): string {
 
 // ── Demo local ───────────────────────────────────────────────────────────────
 const demoRoot = () =>
-  process.env.AMAPOLA_DEMO_DIR ? `${path.resolve(process.env.AMAPOLA_DEMO_DIR)}-uploads` : path.join(os.tmpdir(), "amapola-demo-uploads");
+  process.env.WORKSPACE_DEMO_DIR ? `${path.resolve(process.env.WORKSPACE_DEMO_DIR)}-uploads` : path.join(os.tmpdir(), "workspace-demo-uploads");
 
 /** Fichero local de la demo para una ruta del almacén (crea la carpeta si hace falta). */
 export function demoFile(p: string): string {

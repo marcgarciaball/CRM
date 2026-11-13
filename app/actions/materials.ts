@@ -1,9 +1,13 @@
 "use server";
 
 import { run, type ActionState } from "@/lib/action";
-import { requireFirstClientId } from "@/lib/load";
+import type { Q } from "@/lib/db";
+import { AppError } from "@/lib/errors";
 import { bool, oneOf, optUuid, text, uuid, version } from "@/lib/form";
 import { CATEGORIES } from "@/lib/labels";
+import { getCampaign } from "@/lib/services/campaigns";
+import { getDeliverable } from "@/lib/services/deliverables";
+import { getTask } from "@/lib/services/tasks";
 import {
   attachResource, createResource, findDuplicates, markResourceUpdated, parseHttpUrl, unlink, updateLinkFlags, updateResource,
   type Target,
@@ -19,10 +23,19 @@ const resourceInput = (fd: FormData) => ({
   description: text(fd, "description", "la descripción", { max: 1000 }),
 });
 
+/** Cliente del registro al que se enlaza: un recurso nuevo se crea siempre en ese cliente. */
+async function targetClientId(q: Q, target: Target): Promise<string> {
+  const row = target.type === "campaign" ? await getCampaign(q, target.id)
+    : target.type === "deliverable" ? await getDeliverable(q, target.id) : await getTask(q, target.id);
+  if (!row) throw new AppError("No se ha encontrado el registro.", "not_found");
+  return row.client_id;
+}
+
 /**
  * Añade un enlace desde cualquier registro o desde la biblioteca.
  * - `resource_id`: enlaza un recurso que ya existe (sin copiarlo).
- * - título + URL: crea el recurso; si la URL ya existe, avisa antes de crear otro.
+ * - título + URL: crea el recurso; si la URL ya existe, avisa antes de crear otro. Con registro, en el cliente
+ *   de ese registro; sin registro (biblioteca, creación rápida), en el cliente que indica el formulario.
  */
 export const addLinkAction: Action = async (_prev, fd) =>
   run(async (q) => {
@@ -32,7 +45,8 @@ export const addLinkAction: Action = async (_prev, fd) =>
 
     let resourceId = optUuid(fd, "resource_id");
     if (!resourceId) {
-      const input = { ...resourceInput(fd), client_id: await requireFirstClientId(q) }; // TODO(Task 5)
+      const client_id = target ? await targetClientId(q, target) : uuid(fd, "client_id");
+      const input = { ...resourceInput(fd), client_id };
       if (!bool(fd, "allow_duplicate")) {
         const duplicates = await findDuplicates(q, input.client_id, input.url);
         if (duplicates.length > 0) return { state: { duplicates: duplicates.map((d) => ({ id: d.id, title: d.title })) } };

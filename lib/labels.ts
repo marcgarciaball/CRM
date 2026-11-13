@@ -74,10 +74,17 @@ export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
   completed: "Finalizada",
 };
 
-export const ROLE_LABEL = { admin: "Administración", member: "Miembro" } as const;
+/** Rol en la plataforma (no confundir con el papel dentro de un cliente: `CLIENT_ROLE_LABEL`). */
+export const ROLE_LABEL = { admin: "Administración de plataforma", member: "Persona" } as const;
 export const CLIENT_ROLE_LABEL = { owner: "Propiedad", member: "Miembro" } as const;
 
-type Transition = { to: DeliverableStatus; label: string; adminOnly?: boolean; /** Solo si la revisión actual sigue validada. */ needsApproval?: boolean };
+/** Persona que ya no comparte ningún cliente con quien mira: su perfil no es visible y su nombre llega vacío. */
+export const FORMER_MEMBER = "Antiguo miembro";
+/** Nombre de quien figura en un registro: «Antiguo miembro» si hay persona pero no nombre; `none` si no hay nadie. */
+export const personName = (id: string | null | undefined, name: string | null | undefined, none: string): string =>
+  id ? name ?? FORMER_MEMBER : none;
+
+type Transition = { to: DeliverableStatus; label: string; ownerOnly?: boolean; /** Solo si la revisión actual sigue validada. */ needsApproval?: boolean };
 const PARK: Transition[] = [
   { to: "waiting_client", label: "Esperando material del cliente" },
   { to: "waiting_marketing", label: "Esperando a marketing" },
@@ -96,7 +103,7 @@ export const DELIVERABLE_TRANSITIONS: Record<DeliverableStatus, Transition[]> = 
   idea: [{ to: "in_preparation", label: "Empezar preparación" }, { to: "in_review", label: "Pedir revisión" }, ...PARK],
   in_preparation: [{ to: "in_review", label: "Pedir revisión" }, { to: "idea", label: "Volver a idea" }, ...PARK],
   in_review: [
-    { to: "approved", label: "Validar", adminOnly: true },
+    { to: "approved", label: "Validar", ownerOnly: true },
     { to: "changes_requested", label: "Solicitar cambios" },
     { to: "in_preparation", label: "Retirar de revisión" },
     ...PARK,
@@ -132,7 +139,7 @@ export function guessCategory(url: string): Category {
   if (host.endsWith("figma.com")) return "figma";
   if (host === "drive.google.com") return "drive";
   if (host === "docs.google.com") return "document";
-  if (host.endsWith("byamapolalab.com") || host.endsWith("myshopify.com") || host === "admin.shopify.com") return "store";
+  if (host.endsWith("myshopify.com") || host === "admin.shopify.com") return "store";
   if (host.endsWith("facebook.com") || host.endsWith("meta.com") || host === "ads.google.com") return "advertising";
   if (host.endsWith("klaviyo.com") || host.endsWith("mailchimp.com")) return "email";
   return "other";

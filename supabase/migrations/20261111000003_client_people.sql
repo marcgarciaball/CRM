@@ -18,6 +18,13 @@ end $$;
 
 -- Bloquea los miembros del cliente hasta el final de la transacción: dos cambios simultáneos
 -- no pueden dejar el cliente sin propietaria (el segundo espera y recuenta).
+-- Es el único cerrojo de la regla de la última propietaria y lo toman los tres caminos que pueden
+-- quitar propietarias: `set_client_member_role`, `remove_client_member` y `profiles_guard` (desactivar).
+-- Orden de bloqueo: (1) la fila del perfil que se desactiva, si la hay (la toma el propio UPDATE);
+-- (2) los miembros de cada cliente afectado, en orden de `client_id`. Las funciones de miembros solo
+-- bloquean un cliente y no bloquean perfiles, así que no se forman ciclos.
+-- Tras bloquear, el recuento se hace en una sentencia posterior: en READ COMMITTED esa sentencia ya
+-- ve lo que la transacción que retenía el cerrojo haya confirmado.
 create function public.lock_client_members(p_client uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -41,9 +48,32 @@ language sql stable security definer set search_path = public as $$
      where mine.user_id = auth.uid() and theirs.user_id = p_person);
 $$;
 
+-- ── Límite diario: 20 por persona cada 24 horas ────────────────────────────
+-- Cuenta las invitaciones y también cada intento de añadir por email: así nadie puede usar
+-- `add_client_member` para averiguar sin límite qué emails tienen cuenta.
+-- El límite es de 20 emails DISTINTOS (normalizados) en 24 horas: añadir e invitar al mismo email,
+-- o reintentarlo, cuenta una sola vez. Un email ya contado en la ventana siempre se admite.
+-- Se registra cada llamada.
+create function public.consume_invitation_quota(p_email text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_email text := lower(trim(p_email));
+begin
+  -- Serializa los registros de una misma persona para que el recuento sea exacto.
+  perform 1 from public.profiles where id = auth.uid() for update;
+  if not exists (select 1 from public.invitation_log
+                  where invited_by = auth.uid() and email = v_email and created_at > now() - interval '24 hours')
+     and (select count(distinct email) from public.invitation_log
+           where invited_by = auth.uid() and created_at > now() - interval '24 hours') >= 20 then
+    raise exception 'Has alcanzado el límite de 20 invitaciones al día.';
+  end if;
+  insert into public.invitation_log (invited_by, email) values (auth.uid(), v_email);
+end $$;
+
 -- ── Añadir por email ───────────────────────────────────────────────────────
--- Solo se añade a quien ya tiene perfil. Sin perfil (o sin cuenta) la respuesta es la misma,
--- para no revelar qué emails existen.
+-- Solo se añade a quien ya tiene perfil. Sin perfil y sin cuenta dan la misma respuesta, pero
+-- «added»/«already_member» sí revelan que el email tiene cuenta: por eso cada llamada consume
+-- el límite diario de invitaciones, antes de buscar.
 create function public.add_client_member(p_client uuid, p_email text, p_role text) returns text
 language plpgsql security definer set search_path = public as $$
 declare
@@ -53,6 +83,10 @@ begin
   if p_role is null or p_role not in ('owner', 'member') then
     raise exception 'Rol no válido.';
   end if;
+  if p_email is null or trim(p_email) = '' then
+    raise exception 'Indica un email.';
+  end if;
+  perform public.consume_invitation_quota(p_email);
   select u.id into v_user
     from auth.users u join public.profiles p on p.id = u.id
    where lower(trim(u.email)) = lower(trim(p_email))
@@ -78,6 +112,9 @@ begin
   if p_role is null or p_role not in ('owner', 'member') then
     raise exception 'Rol no válido.';
   end if;
+  if p_display_name is null or trim(p_display_name) = '' then
+    raise exception 'Indica el nombre de la persona.';
+  end if;
   if not exists (select 1 from auth.users where id = p_user) then
     raise exception 'No se ha encontrado la cuenta invitada.';
   end if;
@@ -100,6 +137,8 @@ begin
   end if;
   perform public.require_client_manager(p_client);
   perform public.lock_client_members(p_client);
+  -- Tras esperar al cerrojo, quien llama puede haber dejado de ser propietaria: se comprueba de nuevo.
+  perform public.require_client_manager(p_client);
   select role into v_current from public.client_members where client_id = p_client and user_id = p_user;
   if v_current is null then
     raise exception 'Esa persona no es miembro de este cliente.';
@@ -111,11 +150,9 @@ begin
 end $$;
 
 -- ── Quitar a alguien (o salir) ─────────────────────────────────────────────
--- Su trabajo abierto en el cliente queda sin responsable; el terminado conserva el historial.
-create function public.remove_client_member(p_client uuid, p_user uuid) returns void
-language plpgsql security definer set search_path = public as $$
-declare
-  v_current text;
+-- Salir: cualquier miembro de un cliente activo. Quitar a otra persona: la propiedad.
+create function public.require_member_change(p_client uuid, p_user uuid) returns void
+language plpgsql stable security definer set search_path = public as $$
 begin
   if p_user = auth.uid() then
     if not public.can_write_client(p_client) then
@@ -124,8 +161,18 @@ begin
   else
     perform public.require_client_manager(p_client);
   end if;
-  -- Tras bloquear, el recuento de propietarias ya ve cualquier cambio simultáneo confirmado.
+end $$;
+
+-- Su trabajo abierto en el cliente queda sin responsable; el terminado conserva el historial.
+create function public.remove_client_member(p_client uuid, p_user uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_current text;
+begin
+  perform public.require_member_change(p_client, p_user);
   perform public.lock_client_members(p_client);
+  -- Tras esperar al cerrojo, los permisos pueden haber cambiado: se comprueban de nuevo.
+  perform public.require_member_change(p_client, p_user);
   select role into v_current from public.client_members where client_id = p_client and user_id = p_user;
   if v_current is null then
     raise exception 'Esa persona no es miembro de este cliente.';
@@ -166,25 +213,20 @@ begin
      order by p.display_name, m.user_id;
 end $$;
 
--- ── Límite de invitaciones: 20 por persona cada 24 horas ───────────────────
+-- ── Registrar una invitación enviada (comparte el límite diario) ───────────
 create function public.record_invitation(p_email text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if not public.is_member() then
     raise exception 'Solo las personas con acceso pueden invitar.' using errcode = '42501';
   end if;
-  -- Serializa las invitaciones de una misma persona para que el recuento sea exacto.
-  perform 1 from public.profiles where id = auth.uid() for update;
-  if (select count(*) from public.invitation_log
-       where invited_by = auth.uid() and created_at > now() - interval '24 hours') >= 20 then
-    raise exception 'Has alcanzado el límite de 20 invitaciones al día.';
-  end if;
-  insert into public.invitation_log (invited_by, email) values (auth.uid(), lower(trim(p_email)));
+  perform public.consume_invitation_quota(p_email);
 end $$;
 
 -- Las funciones nuevas parten con permiso de ejecución para todos: se restringe explícitamente.
 revoke all on function
   public.require_client_manager(uuid), public.lock_client_members(uuid), public.has_other_owner(uuid, uuid),
+  public.consume_invitation_quota(text), public.require_member_change(uuid, uuid),
   public.shares_client_with(uuid),
   public.add_client_member(uuid, text, text), public.attach_invited_member(uuid, uuid, text, text),
   public.set_client_member_role(uuid, uuid, text), public.remove_client_member(uuid, uuid),
@@ -210,6 +252,7 @@ create or replace function public.profiles_guard() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   v_clients text;
+  v_client uuid;
 begin
   new.id := old.id;
   new.created_at := old.created_at;
@@ -224,6 +267,15 @@ begin
     end if;
   end if;
   if old.active and not new.active then
+    -- Mismo cerrojo que las funciones de miembros (ver `lock_client_members`), cliente a cliente
+    -- en orden de id; el recuento va después, en otra sentencia.
+    for v_client in
+      select m.client_id from public.client_members m join public.clients c on c.id = m.client_id
+       where m.user_id = old.id and m.role = 'owner' and c.archived_at is null
+       order by m.client_id
+    loop
+      perform public.lock_client_members(v_client);
+    end loop;
     select string_agg(c.name, ', ' order by c.name) into v_clients
       from public.client_members m join public.clients c on c.id = m.client_id
      where m.user_id = old.id and m.role = 'owner' and c.archived_at is null

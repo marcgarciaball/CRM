@@ -12,11 +12,11 @@ const TONE: Record<Tone, string> = {
   warn: "bg-st-warn-bg text-st-warn-fg",
   danger: "bg-st-danger-bg text-st-danger-fg",
   ok: "bg-st-ok-bg text-st-ok-fg",
-  outline: "border border-line text-muted",
+  outline: "border border-muted text-muted",
 };
 
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
-  return <span className={`inline-flex items-center rounded-pill px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${TONE[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-sm px-2 py-0.5 font-mono text-xs font-medium tracking-wide whitespace-nowrap uppercase ${TONE[tone]}`}>{children}</span>;
 }
 
 export const TONE_CLASS = TONE;
@@ -40,10 +40,10 @@ export const CampaignStatusBadge = ({ status }: { status: CampaignStatus }) => (
 /** Cabecera contextual de página con la acción principal. */
 export function PageHeader({ title, eyebrow, actions, children }: { title: string; eyebrow?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   return (
-    <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         {eyebrow && <p className="eyebrow mb-1">{eyebrow}</p>}
-        <h1 className="text-xl font-semibold break-words sm:text-2xl">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         {children}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -53,11 +53,11 @@ export function PageHeader({ title, eyebrow, actions, children }: { title: strin
 
 export function Section({ title, count, actions, children, id }: { title: string; count?: number; actions?: ReactNode; children: ReactNode; id?: string }) {
   return (
-    <section id={id} className="card mb-4 scroll-mt-20 p-4 sm:p-5">
+    <section id={id} className="mb-8 scroll-mt-20 border-t-2 border-ink pt-3">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-semibold">
+        <h2 className="text-lg font-extrabold tracking-tight">
           {title}
-          {count !== undefined && count > 0 && <span className="ml-2 rounded-pill bg-bg px-2 py-0.5 text-xs font-medium text-muted">{count}</span>}
+          {count !== undefined && count > 0 && <span className="ml-2 font-mono text-xs font-medium text-muted">{count}</span>}
         </h2>
         {actions}
       </div>
@@ -69,10 +69,10 @@ export function Section({ title, count, actions, children, id }: { title: string
 /** Bloque secundario plegado: se ve solo cuando hace falta. */
 export function Collapsed({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   return (
-    <details className="card mb-4 p-4 sm:p-5">
-      <summary className="flex items-center justify-between text-[15px] font-semibold">
-        <span>{title}{count !== undefined && count > 0 && <span className="ml-2 rounded-pill bg-bg px-2 py-0.5 text-xs font-medium text-muted">{count}</span>}</span>
-        <span className="text-xs font-normal text-muted">Mostrar / ocultar</span>
+    <details className="mb-8 border-t border-ink pt-3">
+      <summary className="flex items-center justify-between text-[15px] font-bold">
+        <span>{title}{count !== undefined && count > 0 && <span className="ml-2 font-mono text-xs font-medium text-muted">{count}</span>}</span>
+        <span className="font-mono text-xs font-normal text-muted uppercase">Mostrar / ocultar</span>
       </summary>
       <div className="mt-3">{children}</div>
     </details>
@@ -111,10 +111,10 @@ export const options = <T extends string>(labels: Record<T, string>, order?: rea
 
 export function Tabs({ tabs, current }: { tabs: { href: string; label: string; key: string }[]; current: string }) {
   return (
-    <nav aria-label="Vistas" className="mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-lg bg-st-neutral-bg p-1">
+    <nav aria-label="Vistas" className="mb-4 inline-flex max-w-full overflow-x-auto border border-ink">
       {tabs.map((t) => (
         <Link key={t.key} href={t.href} aria-current={t.key === current ? "page" : undefined}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap ${t.key === current ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}>
+          className={`px-3 py-1.5 text-sm font-semibold whitespace-nowrap ${t.key === current ? "bg-ink text-white" : "text-ink hover:bg-subtle"}`}>
           {t.label}
         </Link>
       ))}

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { isDemo, withUser } from "./db";
 import { getProfile, type Profile } from "./services/core";
 
-export const DEMO_COOKIE = "amapola_demo_user";
+export const DEMO_COOKIE = "workspace_demo_user";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Identidad autenticada (verificada contra Supabase Auth), o null. */

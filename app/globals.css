@@ -1,59 +1,65 @@
 @import "tailwindcss";
-@import "@fontsource/roboto/latin-400.css";
-@import "@fontsource/roboto/latin-500.css";
-@import "@fontsource/roboto/latin-700.css";
-@import "@fontsource/roboto-mono/latin-400.css";
-@import "@fontsource/roboto-mono/latin-500.css";
+@import "@fontsource/archivo/latin-400.css";
+@import "@fontsource/archivo/latin-500.css";
+@import "@fontsource/archivo/latin-600.css";
+@import "@fontsource/archivo/latin-700.css";
+@import "@fontsource/archivo/latin-800.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
 
 /*
-  Tokens de diseño de Amapola Workspace.
-  Verificado en el tema de la tienda (config/settings_data.json): los colores
-  #121212, #ffffff, #f3f3f3, #f6e6af, #334fb4 y #242833, la tipografía Roboto Mono
-  (aquí solo en el nombre de la aplicación) y las insignias redondeadas.
-  Propuesta propia para una herramienta de trabajo (no es marca oficial): Roboto para
-  todo el texto, esquinas suaves y los colores de estado.
+  Tokens de diseño: negro, blanco y naranja.
+  - Tinta casi negra, superficies blancas y un solo naranja. El naranja es para la acción principal, el elemento
+    activo de la navegación, el foco y las marcas clave. Sobre naranja el texto es negro; el naranja nunca es color
+    de texto sobre blanco (no llega al contraste AA).
+  - Esquinas cuadradas (0) en tarjetas, campos y botones; 2px en insignias (`rounded-sm`). Sin sombras ni
+    desenfoques: reglas negras de 1–2px. Por eso se anulan aquí los radios del tema de Tailwind: cualquier clase de
+    radio que quede en una pantalla sale cuadrada (salvo los círculos, que no dependen del tema).
+  - Archivo para el texto y los títulos (800, grande y apretado); IBM Plex Mono para fechas, recuentos, estados y
+    antetítulos.
+  - Estados: cinco familias, siempre con su etiqueta (nunca solo el color).
 */
 @theme {
-  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Roboto Mono", ui-monospace, monospace;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --color-bg: #f3f3f3;
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
-  --color-ink: #121212;
-  --color-muted: #5a5e69;
-  --color-line: #dcdcdc;
-  --color-line-strong: #121212;
-  --color-accent: #334fb4;
-  --color-highlight: #f6e6af;
-  --color-dark: #242833;
+  --color-ink: #0a0a0a;
+  --color-dark: #0a0a0a;
+  --color-muted: #5c5c5c;
+  --color-line: #d9d9d9;
+  --color-line-strong: #0a0a0a;
+  --color-accent: #ff5a00;
+  --color-accent-ink: #0a0a0a; /* texto sobre naranja */
+  --color-highlight: #ff5a00;
+  --color-subtle: #f4f4f4; /* pasar por encima y filas alternas */
 
-  /* Estados (propuesta): fondo suave + texto con contraste AA */
-  --color-st-neutral-bg: #ececec;
-  --color-st-neutral-fg: #3c3f47;
-  --color-st-info-bg: #e3e8f8;
-  --color-st-info-fg: #263c8f;
-  --color-st-warn-bg: #f6e6af;
-  --color-st-warn-fg: #5c4500;
-  --color-st-danger-bg: #f9dcd6;
-  --color-st-danger-fg: #8f2413;
-  --color-st-ok-bg: #dcefdf;
-  --color-st-ok-fg: #1d5a2c;
+  --color-st-neutral-bg: #f4f4f4;
+  --color-st-neutral-fg: #0a0a0a;
+  --color-st-info-bg: #0a0a0a;
+  --color-st-info-fg: #ffffff;
+  --color-st-warn-bg: #ff5a00;
+  --color-st-warn-fg: #0a0a0a;
+  --color-st-danger-bg: #fbe3df;
+  --color-st-danger-fg: #a11d0c;
+  --color-st-ok-bg: #dff3e3;
+  --color-st-ok-fg: #14602a;
 
-  --radius-pill: 40px;
+  --radius-*: initial;
+  --radius-sm: 2px;
 }
 
 html {
   background: var(--color-bg);
   color: var(--color-ink);
+  /* Casillas, radios y barras nativas en tinta, no en el azul del navegador. */
+  accent-color: var(--color-ink);
 }
 body {
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.45;
-}
-.font-brand {
-  font-family: var(--font-mono);
-  letter-spacing: -0.01em;
 }
 :focus-visible {
   outline: 2px solid var(--color-accent);
@@ -68,48 +74,59 @@ summary::-webkit-details-marker {
 }
 
 @layer components {
+  /* Nombre de la aplicación y nombres destacados: Archivo muy grueso y apretado. */
+  .font-brand {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  /* Título de página: 28px en móvil, 36px desde `sm`. */
+  .page-title {
+    @apply text-[28px] leading-[1.05] font-extrabold tracking-tight break-words sm:text-[36px];
+  }
   .field {
-    @apply block w-full rounded-lg border border-line bg-surface px-3 py-2 text-[15px] text-ink placeholder:text-muted/70 focus:border-accent disabled:bg-bg;
+    @apply block w-full border border-ink bg-surface px-3 py-2 text-[15px] text-ink placeholder:text-muted disabled:bg-subtle disabled:text-muted;
     min-height: 40px;
   }
   /* Campo de edición rápida dentro de listas: parece texto hasta que se pasa por encima. */
   .chip-field {
-    @apply max-w-40 cursor-pointer rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[13px] text-ink hover:border-line hover:bg-surface focus:border-accent focus:bg-surface disabled:opacity-60;
+    @apply max-w-40 cursor-pointer border border-transparent bg-transparent px-1.5 py-1 text-[13px] text-ink hover:border-ink hover:bg-surface focus:border-ink focus:bg-surface disabled:opacity-60;
   }
   .btn {
-    @apply inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 border border-ink px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply border-ink bg-ink text-white hover:bg-dark;
+    @apply bg-accent text-accent-ink hover:bg-ink hover:text-white disabled:hover:bg-accent disabled:hover:text-accent-ink;
   }
+  /* Igual que la principal: solo hay un naranja. Se mantiene el nombre por las pantallas que lo usan. */
   .btn-accent {
-    @apply border-accent bg-accent text-white hover:opacity-90;
+    @apply bg-accent text-accent-ink hover:bg-ink hover:text-white disabled:hover:bg-accent disabled:hover:text-accent-ink;
   }
   .btn-secondary {
-    @apply bg-surface text-ink hover:bg-bg;
+    @apply bg-surface text-ink hover:bg-subtle;
   }
   .btn-ghost {
-    @apply border-transparent bg-transparent text-ink hover:bg-bg;
+    @apply border-transparent bg-transparent text-ink hover:bg-subtle;
   }
   .btn-danger {
-    @apply border-st-danger-fg/40 bg-surface text-st-danger-fg hover:bg-st-danger-bg;
+    @apply border-st-danger-fg bg-surface text-st-danger-fg hover:bg-st-danger-bg;
   }
   .btn-sm {
-    @apply min-h-8 rounded-md px-2.5 py-1 text-[13px];
+    @apply min-h-8 px-2.5 py-1 text-[13px];
   }
   .link {
-    @apply text-accent underline underline-offset-2 hover:no-underline;
+    @apply text-ink underline decoration-ink underline-offset-2 hover:decoration-accent hover:decoration-2;
   }
   .card {
-    @apply rounded-xl border border-line bg-surface;
+    @apply border border-line-strong bg-surface;
   }
   .label {
-    @apply mb-1 block text-[13px] font-medium text-ink;
+    @apply mb-1 block text-[13px] font-semibold text-ink;
   }
   .eyebrow {
-    @apply text-[11px] font-medium tracking-wide text-muted uppercase;
+    @apply font-mono text-[11px] font-medium tracking-wider text-muted uppercase;
   }
   .more {
-    @apply inline-block rounded-md px-1.5 py-0.5 text-[13px] text-muted hover:bg-bg hover:text-ink;
+    @apply inline-block px-1.5 py-0.5 text-[13px] text-muted hover:bg-subtle hover:text-ink;
   }
 }

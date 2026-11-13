@@ -1,9 +1,11 @@
 import "server-only";
+import { notFound } from "next/navigation";
+import { cache } from "react";
 import { requireUser } from "./auth";
 import { withUser, type Q } from "./db";
-import { AppError } from "./errors";
+import { isUuid } from "./form";
 import { campaignOptions } from "./services/campaigns";
-import { listMyClients } from "./services/clients";
+import { getClient, type Client } from "./services/clients";
 import { listProfiles, type Profile } from "./services/core";
 
 /** Carga de datos de una página: sesión + transacción con la identidad de la persona. */
@@ -13,22 +15,27 @@ export async function load<T>(fn: (q: Q, user: Profile) => Promise<T>): Promise<
   return { ...data, user };
 }
 
-// TODO(Task 5): el cliente vendrá de la URL. Provisional: el primer cliente activo de la persona.
-export const firstClientId = async (q: Q): Promise<string | null> => (await listMyClients(q))[0]?.id ?? null;
-// TODO(Task 5): provisional para las acciones que crean trabajo.
-export async function requireFirstClientId(q: Q): Promise<string> {
-  const id = await firstClientId(q);
-  if (!id) throw new AppError("No tienes acceso a ningún cliente.", "forbidden");
-  return id;
+/**
+ * Carga de una página dentro de un cliente (`/c/<cliente>/…`). Si el parámetro no es un identificador
+ * válido o la persona no es miembro del cliente, la página no existe (404), sin distinguir un caso del otro.
+ */
+export async function loadClient<T>(
+  clientParam: string,
+  fn: (q: Q, user: Profile, client: Client) => Promise<T>,
+): Promise<T & { user: Profile; client: Client }> {
+  if (!isUuid(clientParam)) notFound();
+  const user = await requireUser();
+  const client = await clientFor(user.id, clientParam);
+  if (!client) notFound();
+  const data = await withUser(user.id, (q) => fn(q, user, client));
+  return { ...data, client, user };
 }
 
-// TODO(Task 5): provisional, las personas del primer cliente de la persona.
-export const firstClientPeople = async (q: Q): Promise<Profile[]> => {
-  const id = await firstClientId(q);
-  return id ? listProfiles(q, id) : [];
-};
+/** El cliente con el papel de la persona, una sola consulta por petición (el marco del cliente y la página lo piden ambos). */
+const clientFor = cache((userId: string, clientId: string) => withUser(userId, (q) => getClient(q, clientId)));
 
-export const formOptions = async (q: Q) => {
-  const clientId = await firstClientId(q); // TODO(Task 5)
-  return { people: clientId ? await listProfiles(q, clientId) : [], campaigns: clientId ? await campaignOptions(q, clientId) : [] };
-};
+/** Personas activas y campañas del cliente para los formularios. */
+export const formOptions = async (q: Q, clientId: string) => ({
+  people: await listProfiles(q, clientId),
+  campaigns: await campaignOptions(q, clientId),
+});

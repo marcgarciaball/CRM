@@ -1,9 +1,11 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyMigrationsAfter, createPgliteDriver } from "@/lib/db/pglite";
 import type { Driver } from "@/lib/db/types";
-import { createClient, getClient, listMyClients } from "@/lib/services/clients";
-import { createDeliverable, transitionDeliverable } from "@/lib/services/deliverables";
-import { createTask } from "@/lib/services/tasks";
+import { createClient, getClient, listMyClients, setClientArchived } from "@/lib/services/clients";
+import { createDeliverable, listDeliverables, transitionDeliverable } from "@/lib/services/deliverables";
+import { createTask, listTasks } from "@/lib/services/tasks";
 import { as, setupDb, type Clients, type Team } from "./helpers";
 
 let driver: Driver;
@@ -13,6 +15,9 @@ beforeAll(async () => ({ driver, team: t, c } = await setupDb()));
 afterAll(() => driver.close());
 
 const LAST_OLD = "20261110000004_notifications.sql";
+// Nombre del cliente que crea la migración de traslado, leído de la propia migración (el código no lo repite).
+const MOVE_SQL = readFileSync(path.join(process.cwd(), "supabase/migrations/20261111000001_clients.sql"), "utf8");
+const MOVED_CLIENT = /insert into public\.clients \(name\) values \('([^']+)'\)/.exec(MOVE_SQL)?.[1];
 
 describe("clientes", () => {
   it("crear un cliente convierte a quien lo crea en propietaria", async () => {
@@ -40,7 +45,43 @@ describe("clientes", () => {
     expect(rows.every((r) => r.client_id === c.b)).toBe(true);
   });
 
-  it("la migración mueve los datos existentes al cliente «Amapola»", async () => {
+  it("filtros del inicio en la consulta: sin clientes archivados y, para revisar, solo los clientes propios", async () => {
+    const sys = (sql: string, params: unknown[]) => driver.transaction((q) => q(sql, params));
+    // Elisa: miembro de A y, aquí, propietaria de B.
+    await sys("update client_members set role = 'owner' where client_id = $1 and user_id = $2", [c.b, t.elisa]);
+    try {
+      const work = async (client: string, owner: string, tag: string) => {
+        await as(owner, (q) => createTask(q, {
+          client_id: client, title: `Inicio ${tag}`, assignee_id: t.elisa, due_date: "2000-01-01", priority: "low", campaign_id: null, deliverable_id: null }));
+        const d = await as(owner, (q) => createDeliverable(q, {
+          client_id: client, title: `Revisar ${tag}`, channel: "other", campaign_id: null, owner_id: null, planned_date: null }));
+        await as(owner, (q) => transitionDeliverable(q, d, "in_review"));
+      };
+      await work(c.a, t.maite, "A");
+      await work(c.b, t.ecommerce, "B");
+      const tasks = async (f: Parameters<typeof listTasks>[1]) =>
+        (await as(t.elisa, (q) => listTasks(q, f))).filter((x) => x.title.startsWith("Inicio ")).map((x) => x.title).sort();
+      const review = async (f: Parameters<typeof listDeliverables>[1]) =>
+        (await as(t.elisa, (q) => listDeliverables(q, { status: "in_review", ...f }))).filter((x) => x.title.startsWith("Revisar ")).map((x) => x.title).sort();
+
+      expect(await review({})).toEqual(["Revisar A", "Revisar B"]);
+      expect(await review({ ownedClients: true })).toEqual(["Revisar B"]);
+      expect(await tasks({ assignee: t.elisa, open: true, activeClients: true })).toEqual(["Inicio A", "Inicio B"]);
+
+      await as(t.maite, (q) => setClientArchived(q, c.a, true));
+      expect(await tasks({ assignee: t.elisa, open: true })).toEqual(["Inicio A", "Inicio B"]);
+      expect(await tasks({ assignee: t.elisa, open: true, activeClients: true })).toEqual(["Inicio B"]);
+      expect(await tasks({ open: true, to: "2000-01-02", activeClients: true })).toEqual(["Inicio B"]);
+      expect(await review({ activeClients: true })).toEqual(["Revisar B"]);
+      await as(t.ecommerce, (q) => setClientArchived(q, c.b, true));
+      expect(await review({ activeClients: true, ownedClients: true })).toEqual([]);
+    } finally {
+      await sys("update clients set archived_at = null where id = any($1::uuid[])", [[c.a, c.b]]);
+      await sys("update client_members set role = 'member' where client_id = $1 and user_id = $2", [c.b, t.elisa]);
+    }
+  });
+
+  it("la migración mueve los datos existentes a un único cliente con el nombre de la migración", async () => {
     const d = await createPgliteDriver(undefined, { upTo: LAST_OLD });
     try {
       const ids = await d.transaction(async (q) => {
@@ -65,7 +106,10 @@ describe("clientes", () => {
       await d.transaction(async (q) => {
         const clients = await q<{ id: string; name: string }>("select id, name from clients");
         expect(clients).toHaveLength(1);
-        expect(clients[0].name).toBe("Amapola");
+        // La migración crea un único cliente de traslado, con un nombre real (no vacío ni un marcador).
+        expect(MOVE_SQL.match(/insert into public\.clients \(name\) values/g)).toHaveLength(1);
+        expect(MOVED_CLIENT).toMatch(/^\p{L}[\p{L} ]{2,}$/u);
+        expect(clients[0].name).toBe(MOVED_CLIENT);
         const client = clients[0].id;
         for (const [table, id] of [["campaigns", ids.campaign], ["deliverables", ids.deliverable], ["tasks", ids.task], ["resources", ids.resource]]) {
           expect(await q(`select client_id from ${table} where id = $1`, [id])).toEqual([{ client_id: client }]);

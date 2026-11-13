@@ -11,14 +11,14 @@ export type Deliverable = {
   /** Diapositiva: formatos necesarios, tipo de creatividad, inspiración y copy in (texto dentro de la pieza). */
   formats: string; creative_format: CreativeFormat | null; inspo: string; copy_in: string;
   planned_date: string | null; published_on: string | null;
-  revision: number; approved_revision: number | null; approved_by_name: string | null; approved_at: Date | null;
+  revision: number; approved_revision: number | null; approved_by: string | null; approved_by_name: string | null; approved_at: Date | null;
   archived_at: Date | null; version: number; updated_at: Date;
 };
 
 const SELECT = `
   select d.id, d.client_id, cl.name as client_name, d.title, d.channel, d.status, d.campaign_id, c.name as campaign_name,
          d.owner_id, o.display_name as owner_name, d.brief, d.copy, d.formats, d.creative_format, d.inspo, d.copy_in, d.planned_date, d.published_on,
-         d.revision, d.approved_revision, ap.display_name as approved_by_name, d.approved_at,
+         d.revision, d.approved_revision, d.approved_by, ap.display_name as approved_by_name, d.approved_at,
          d.archived_at, d.version, d.updated_at
     from deliverables d
     join clients cl on cl.id = d.client_id
@@ -29,6 +29,8 @@ const SELECT = `
 export type DeliverableFilters = {
   client?: string; owner?: string; channel?: string; campaign?: string; status?: string;
   from?: string; to?: string; unplanned?: boolean; archived?: boolean;
+  /** Solo de clientes no archivados; solo de clientes en los que quien consulta es propietaria (inicio). */
+  activeClients?: boolean; ownedClients?: boolean;
 };
 
 export function listDeliverables(q: Q, f: DeliverableFilters = {}): Promise<Deliverable[]> {
@@ -43,9 +45,11 @@ export function listDeliverables(q: Q, f: DeliverableFilters = {}): Promise<Deli
         and ($7::date is null or d.planned_date <= $7)
         and ($8::boolean is not true or d.planned_date is null)
         and ($9::uuid is null or d.client_id = $9)
+        and ($10::boolean is not true or cl.archived_at is null)
+        and ($11::boolean is not true or public.is_client_owner(d.client_id))
       order by d.planned_date asc nulls last, d.created_at desc
       limit ${LIST_LIMIT}`,
-    [!!f.archived, f.owner ?? null, f.channel ?? null, f.campaign ?? null, f.status ?? null, f.from ?? null, f.to ?? null, f.unplanned ?? null, f.client ?? null],
+    [!!f.archived, f.owner ?? null, f.channel ?? null, f.campaign ?? null, f.status ?? null, f.from ?? null, f.to ?? null, f.unplanned ?? null, f.client ?? null, f.activeClients ?? null, f.ownedClients ?? null],
   );
 }
 
@@ -93,10 +97,10 @@ export async function transitionDeliverable(
   if (rows.length === 0) throw new AppError("No se ha encontrado el entregable.", "not_found");
 }
 
-export type Publication = { id: string; revision: number; published_on: string; recorded_at: Date; recorded_by_name: string | null };
+export type Publication = { id: string; revision: number; published_on: string; recorded_at: Date; recorded_by: string | null; recorded_by_name: string | null };
 export function listPublications(q: Q, deliverableId: string): Promise<Publication[]> {
   return q<Publication>(
-    `select pb.id, pb.revision, pb.published_on, pb.recorded_at, p.display_name as recorded_by_name
+    `select pb.id, pb.revision, pb.published_on, pb.recorded_at, pb.recorded_by, p.display_name as recorded_by_name
        from publications pb left join profiles p on p.id = pb.recorded_by
       where pb.deliverable_id = $1 order by pb.recorded_at desc limit 50`,
     [deliverableId],

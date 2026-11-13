@@ -1,17 +1,18 @@
 "use server";
 
 import { run, type ActionState } from "@/lib/action";
-import { requireFirstClientId } from "@/lib/load";
 import { AppError } from "@/lib/errors";
 import { bool, oneOf, optDate, optUuid, text, uuid, version } from "@/lib/form";
 import { CAMPAIGN_STATUSES, CHANNELS, DELIVERABLE_STATUSES, PRIORITIES, TASK_STATUSES } from "@/lib/labels";
+import { campaignPath, clientPath, deliverablePath, taskPath } from "@/lib/paths";
 import { assetPaths } from "@/lib/services/assets";
 import { removeObjects } from "@/lib/storage";
-import { createCampaign, createNewsletterCampaign, updateCampaign, type CampaignInput } from "@/lib/services/campaigns";
+import { createCampaign, createNewsletterCampaign, getCampaign, updateCampaign, type CampaignInput } from "@/lib/services/campaigns";
 import { addComment, deleteComment, deletePermanently, setArchived } from "@/lib/services/core";
-import { createDeliverable, transitionDeliverable, updateDeliverable } from "@/lib/services/deliverables";
+import { createDeliverable, getDeliverable, transitionDeliverable, updateDeliverable } from "@/lib/services/deliverables";
 import { markNoticesSeen } from "@/lib/services/inbox";
-import { createTask, setTaskStatus, updateTask } from "@/lib/services/tasks";
+import { getResource } from "@/lib/services/resources";
+import { createTask, getTask, setTaskStatus, updateTask } from "@/lib/services/tasks";
 
 type Action = (prev: ActionState, fd: FormData) => Promise<ActionState>;
 
@@ -32,8 +33,8 @@ function campaignInput(fd: FormData): Omit<CampaignInput, "client_id"> {
 
 export const createCampaignAction: Action = async (_prev, fd) =>
   run(async (q) => {
-    const campaign = { ...campaignInput(fd), client_id: await requireFirstClientId(q) }; // TODO(Task 5)
-    if (!bool(fd, "use_template")) return { redirect: `/campanas/${await createCampaign(q, campaign)}` };
+    const campaign = { ...campaignInput(fd), client_id: uuid(fd, "client_id") };
+    if (!bool(fd, "use_template")) return { redirect: campaignPath({ client_id: campaign.client_id, id: await createCampaign(q, campaign) }) };
     // Plantilla de newsletter: solo se crean las tareas marcadas, con las personas y fechas confirmadas.
     const tasks = fd.getAll("task_key").map(String).filter((k) => bool(fd, `task_on_${k}`)).map((k) => ({
       title: text(fd, `task_title_${k}`, "el título de la tarea", { required: true }),
@@ -49,7 +50,7 @@ export const createCampaignAction: Action = async (_prev, fd) =>
       },
       tasks,
     });
-    return { redirect: `/campanas/${id}` };
+    return { redirect: campaignPath({ client_id: campaign.client_id, id }) };
   });
 
 export const updateCampaignAction: Action = async (_prev, fd) =>
@@ -70,8 +71,8 @@ const deliverableInput = (fd: FormData) => ({
 
 export const createDeliverableAction: Action = async (_prev, fd) =>
   run(async (q) => {
-    const client_id = await requireFirstClientId(q); // TODO(Task 5)
-    const href = `/trabajo/entregables/${await createDeliverable(q, { ...deliverableInput(fd), client_id })}`;
+    const client_id = uuid(fd, "client_id");
+    const href = deliverablePath({ client_id, id: await createDeliverable(q, { ...deliverableInput(fd), client_id }) });
     return bool(fd, "stay") ? { state: { ok: true, notice: "Entregable creado.", href } } : { redirect: href };
   });
 
@@ -114,8 +115,8 @@ const taskInput = (fd: FormData) => ({
 
 export const createTaskAction: Action = async (_prev, fd) =>
   run(async (q) => {
-    const client_id = await requireFirstClientId(q); // TODO(Task 5)
-    const href = `/trabajo/tareas/${await createTask(q, { ...taskInput(fd), client_id })}`;
+    const client_id = uuid(fd, "client_id");
+    const href = taskPath({ client_id, id: await createTask(q, { ...taskInput(fd), client_id }) });
     return bool(fd, "stay") ? { state: { ok: true, notice: "Tarea creada.", href } } : { redirect: href };
   });
 
@@ -149,7 +150,9 @@ export const deleteCommentAction: Action = async (_prev, fd) => run(async (q) =>
 
 // ── Archivar y eliminar ────────────────────────────────────────────────────
 const TABLES = { campaign: "campaigns", deliverable: "deliverables", task: "tasks" } as const;
-const LIST_PATH = { campaign: "/campanas", deliverable: "/trabajo?tab=entregables", task: "/trabajo" } as const;
+const LIST_PATH = { campaign: "campanas", deliverable: "trabajo", task: "trabajo", resource: "recursos" } as const;
+const LIST_QUERY = { campaign: "", deliverable: "?tab=entregables", task: "", resource: "" } as const;
+const GET = { campaign: getCampaign, deliverable: getDeliverable, task: getTask, resource: getResource } as const;
 
 export const archiveAction: Action = async (_prev, fd) =>
   run(async (q) => {
@@ -157,15 +160,17 @@ export const archiveAction: Action = async (_prev, fd) =>
     await setArchived(q, TABLES[type], uuid(fd, "id"), bool(fd, "archived"));
   });
 
-/** Eliminación definitiva: solo administración (lo hace cumplir RLS). */
+/** Eliminación definitiva: solo la propiedad del cliente (lo hace cumplir RLS). Después vuelve a la lista del cliente. */
 export const deleteAction: Action = async (_prev, fd) =>
-  run(async (q, user) => {
-    if (user.role !== "admin") throw new AppError("Solo administración puede eliminar definitivamente.", "forbidden");
+  run(async (q) => {
     const type = oneOf(fd, "type", ["campaign", "deliverable", "task", "resource"] as const);
     const id = uuid(fd, "id");
+    // El cliente al que volver es el del registro, leído antes de borrarlo (no el que diga el formulario).
+    const record = await GET[type](q, id);
+    if (!record) throw new AppError("No se ha encontrado el registro.", "not_found");
     // Los ficheros de la creatividad no se borran solos al eliminar el entregable: se recogen antes.
     const files = type === "deliverable" ? await assetPaths(q, id) : [];
     await deletePermanently(q, type === "resource" ? "resources" : TABLES[type], id);
     await removeObjects(files);
-    return { redirect: type === "resource" ? "/recursos" : LIST_PATH[type] };
+    return { redirect: clientPath(record.client_id, LIST_PATH[type]) + LIST_QUERY[type] };
   });

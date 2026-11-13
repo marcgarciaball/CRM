@@ -7,10 +7,11 @@ export type Client = {
 };
 
 /** Solo clientes de los que la persona es miembro; `my_role` es su papel en cada uno. */
-const SELECT = `
-  select cl.id, cl.name, cl.description, cl.archived_at, cl.version, m.role as my_role
+const COLUMNS = "cl.id, cl.name, cl.description, cl.archived_at, cl.version, m.role as my_role";
+const FROM = `
     from clients cl
     join client_members m on m.client_id = cl.id and m.user_id = auth.uid()`;
+const SELECT = `select ${COLUMNS}${FROM}`;
 
 /**
  * Crea un cliente; la base de datos añade a quien lo crea como propietaria.
@@ -32,6 +33,32 @@ export function listMyClients(q: Q, f: { archived?: boolean } = {}): Promise<Cli
   return q<Client>(`${SELECT} where (cl.archived_at is not null) = $1 order by cl.name, cl.created_at limit 200`, [!!f.archived]);
 }
 
+export type ClientSummary = Client & { open_tasks: number; overdue: number; in_review: number; next_publication: string | null };
+
+/**
+ * Resumen de cada cliente activo de la persona, por nombre. Abiertas = tareas sin hacer ni archivar; vencidas =
+ * abiertas con fecha límite anterior a `today` (YYYY-MM-DD); en revisión = entregables no archivados en
+ * «En revisión»; próxima publicación = la fecha prevista más cercana desde `today` entre los entregables sin
+ * archivar, sin publicar y sin descartar.
+ */
+export function clientSummaries(q: Q, today: string): Promise<ClientSummary[]> {
+  return q<ClientSummary>(
+    `select ${COLUMNS},
+       (select count(*)::int from tasks t
+         where t.client_id = cl.id and t.status <> 'done' and t.archived_at is null) as open_tasks,
+       (select count(*)::int from tasks t
+         where t.client_id = cl.id and t.status <> 'done' and t.archived_at is null and t.due_date < $1::date) as overdue,
+       (select count(*)::int from deliverables d
+         where d.client_id = cl.id and d.archived_at is null and d.status = 'in_review') as in_review,
+       (select min(d.planned_date)::text from deliverables d
+         where d.client_id = cl.id and d.archived_at is null and d.status not in ('published', 'discarded')
+           and d.planned_date >= $1::date) as next_publication
+     ${FROM}
+     where cl.archived_at is null order by cl.name, cl.created_at limit 200`,
+    [today],
+  );
+}
+
 /**
  * Edita nombre y descripción (solo la propiedad del cliente, por RLS), con control de versión.
  * `version = null` fuerza la sobrescritura.
@@ -45,7 +72,11 @@ export async function updateClient(q: Q, id: string, version: number | null, pat
   if (rows.length === 0) await explainNoUpdate(q, id, true);
 }
 
-/** Archiva o recupera un cliente (solo su propiedad). Archivado se puede leer, pero no modificar. */
+/**
+ * Archiva o recupera un cliente (solo su propiedad, por RLS). En un cliente archivado su trabajo y sus
+ * personas se leen pero no se modifican; la propiedad sí puede seguir editando el nombre y la descripción
+ * del propio cliente y recuperarlo.
+ */
 export async function setClientArchived(q: Q, id: string, archived: boolean) {
   const rows = await q(
     "update clients set archived_at = case when $2 then now() else null end where id = $1 returning id",
@@ -74,7 +105,7 @@ export function listClientPeople(q: Q, clientId: string): Promise<ClientPerson[]
   return q<ClientPerson>("select * from client_people($1)", [clientId]);
 }
 
-/** `needs_invitation` tanto si no hay cuenta como si la hay sin perfil: no se revela cuál. */
+/** `needs_invitation` tanto si no hay cuenta como si la hay sin perfil. Cada llamada consume el límite diario de invitaciones. */
 export async function addMemberByEmail(q: Q, clientId: string, email: string, role: ClientRole): Promise<"added" | "already_member" | "needs_invitation"> {
   const [{ result }] = await q<{ result: "added" | "already_member" | "needs_invitation" }>(
     "select add_client_member($1, $2, $3) as result", [clientId, email, role]);
@@ -95,7 +126,7 @@ export async function removeMember(q: Q, clientId: string, userId: string) {
   await q("select remove_client_member($1, $2)", [clientId, userId]);
 }
 
-/** Anota una invitación enviada; falla a partir de 20 en 24 horas. */
+/** Anota una invitación enviada; falla a partir de 20 registros (invitaciones y altas por email) en 24 horas. */
 export async function recordInvitation(q: Q, email: string) {
   await q("select record_invitation($1)", [email]);
 }
