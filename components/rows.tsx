@@ -8,7 +8,7 @@ import type { Task } from "@/lib/services/tasks";
 import { MaterialChip } from "./materials";
 import { peopleOptions } from "@/lib/people";
 import { QuickDate, QuickSelect, TaskStatusSelect } from "./quick";
-import { ChannelBadge, DeliverableStatusBadge, PriorityBadge, TaskStatusBadge } from "./ui";
+import { Avatar, ChannelBadge, DeliverableStatusBadge, PriorityBadge, TaskStatusBadge } from "./ui";
 
 /** Materiales agrupados por registro, para listas y calendario. */
 export function groupMaterials(materials: Material[]) {
@@ -75,7 +75,7 @@ export async function TaskItem({ task, today, materials, showAssignee = true, re
   return (
     <li className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line py-2.5 last:border-b-0">
       {readOnly
-        ? <span className="w-30 shrink-0"><TaskStatusBadge status={task.status} /></span>
+        ? <span className="w-34 shrink-0"><TaskStatusBadge status={task.status} /></span>
         : <TaskStatusSelect id={task.id} value={task.status} label={`Estado de «${task.title}»`} />}
       <div className="min-w-48 flex-1">
         <Link href={taskPath(task)} className={`font-medium hover:underline ${done ? "text-muted line-through" : ""}`}>{task.title}</Link>
@@ -91,12 +91,12 @@ export async function TaskItem({ task, today, materials, showAssignee = true, re
       </div>
       {readOnly ? (
         <>
-          {showAssignee && <span className="text-[13px] text-muted">{personName(task.assignee_id, task.assignee_name, "Sin asignar")}</span>}
+          {showAssignee && <span className="inline-flex items-center gap-1.5 text-[13px]"><Avatar name={task.assignee_id ? personName(task.assignee_id, task.assignee_name, "") : null} />{personName(task.assignee_id, task.assignee_name, "Sin asignar")}</span>}
           <DueDate date={task.due_date} today={today} done={done} />
         </>
       ) : (
         <>
-          {showAssignee && <QuickSelect kind="task" id={task.id} field="assignee_id" value={task.assignee_id} options={people} empty="Sin asignar" label={`Persona asignada a «${task.title}»`} />}
+          {showAssignee && <span className="inline-flex items-center gap-1"><Avatar name={task.assignee_id ? personName(task.assignee_id, task.assignee_name, "") : null} /><QuickSelect kind="task" id={task.id} field="assignee_id" value={task.assignee_id} options={people} empty="Sin asignar" label={`Persona asignada a «${task.title}»`} /></span>}
           <QuickDate kind="task" id={task.id} field="due_date" value={task.due_date} label={`Fecha límite de «${task.title}»`} danger={!!task.due_date && !done && task.due_date < today} />
         </>
       )}

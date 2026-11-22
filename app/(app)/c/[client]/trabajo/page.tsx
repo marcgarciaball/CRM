@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FilterBar } from "@/components/filter-bar";
 import { DeliverableItem, DueDate, TaskItem } from "@/components/rows";
-import { Empty, PageHeader, PriorityBadge, Tabs, options } from "@/components/ui";
+import { Avatar, Empty, PageHeader, PriorityBadge, Tabs, options } from "@/components/ui";
 import { Draggable, DropZone, TaskStatusSelect } from "@/components/quick";
 import { todayMadrid } from "@/lib/dates";
 import { CHANNELS, CHANNEL_LABEL, DELIVERABLE_STATUSES, DELIVERABLE_STATUS_LABEL, PRIORITIES, PRIORITY_LABEL, TASK_STATUSES, TASK_STATUS_LABEL, personName } from "@/lib/labels";
@@ -34,15 +34,20 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
 
   const base = clientPath(client.id, "trabajo");
   const readOnly = !!client.archived_at;
+  // Conserva todos los filtros activos al cambiar uno (persona, vista…).
+  const current = { tab, vista: view, persona: person, campana: campaign, estado: one(sp.estado), prioridad: one(sp.prioridad), canal: one(sp.canal), archivo: archived ? "1" : undefined };
   const qs = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams();
-    for (const [k, v] of Object.entries({ tab, vista: view, persona: person, campana: campaign, ...patch })) if (v && !(k === "vista" && v === "lista") && !(k === "tab" && v === "tareas")) next.set(k, v);
+    for (const [k, v] of Object.entries({ ...current, ...patch })) if (v && !(k === "vista" && v === "lista") && !(k === "tab" && v === "tareas")) next.set(k, v);
     const s = next.toString();
     return s ? `${base}?${s}` : base;
   };
   const people = opts.people.map((p) => ({ id: p.id, label: p.display_name }));
+  // Botones de persona: tú primero; el resto en el orden del equipo.
+  const peopleChips = [...people.filter((p) => p.id === user.id), ...people.filter((p) => p.id !== user.id)];
+  const chip = (active: boolean) =>
+    `inline-flex min-h-8 items-center gap-1.5 border border-ink py-1 pr-2.5 pl-1 text-[13px] font-semibold whitespace-nowrap ${active ? "bg-ink text-white" : "bg-surface text-ink hover:bg-subtle"}`;
   const campaigns = opts.campaigns.map((c) => ({ id: c.id, label: c.name }));
-  const mine = person === user.id;
 
   return (
     <>
@@ -51,15 +56,27 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
 
       {tab === "tareas" ? (
         <>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Link href={qs({ persona: mine ? undefined : user.id })} aria-pressed={mine} className={`btn btn-sm ${mine ? "btn-primary" : "btn-secondary"}`}>Mis tareas</Link>
-            <span className="mx-1 h-5 w-px bg-line" aria-hidden />
-            <Link href={qs({ vista: "lista" })} aria-current={view === "lista" ? "true" : undefined} className={`btn btn-sm ${view === "lista" ? "btn-primary" : "btn-secondary"}`}>Lista</Link>
-            <Link href={qs({ vista: "kanban" })} aria-current={view === "kanban" ? "true" : undefined} className={`btn btn-sm ${view === "kanban" ? "btn-primary" : "btn-secondary"}`}>Kanban</Link>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <nav aria-label="Tareas de" className="flex flex-wrap items-center gap-1.5">
+              <span className="eyebrow mr-1">De</span>
+              <Link href={qs({ persona: undefined })} aria-current={!person ? "true" : undefined} className={`${chip(!person)} pl-2.5`}>Todo el equipo</Link>
+              {peopleChips.map((p) => (
+                <Link key={p.id} href={qs({ persona: person === p.id ? undefined : p.id })} aria-current={person === p.id ? "true" : undefined} className={chip(person === p.id)}>
+                  <span className={person === p.id ? "outline outline-white" : ""}><Avatar name={p.label} size="xs" /></span>
+                  {p.id === user.id ? `${p.label} (tú)` : p.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="inline-flex border border-ink" role="group" aria-label="Vista">
+              {(["lista", "kanban"] as const).map((v) => (
+                <Link key={v} href={qs({ vista: v })} aria-current={view === v ? "true" : undefined}
+                  className={`px-3 py-1 text-[13px] font-semibold ${view === v ? "bg-ink text-white" : "text-ink hover:bg-subtle"}`}>{v === "lista" ? "Lista" : "Kanban"}</Link>
+              ))}
+            </div>
           </div>
           <FilterBar filters={[
-            { name: "persona", label: "Asignada a", options: people },
-            { name: "estado", label: "Estado", options: options(TASK_STATUS_LABEL) },
+            // En el tablero el estado ya son las columnas.
+            ...(view === "lista" ? [{ name: "estado", label: "Estado", options: options(TASK_STATUS_LABEL) }] : []),
             { name: "prioridad", label: "Prioridad", options: options(PRIORITY_LABEL, PRIORITIES) },
             { name: "campana", label: "Campaña", options: campaigns },
           ]} />
@@ -81,15 +98,18 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
                           {column.map((t) => (
                             <li key={t.id}>
                               <Draggable kind="task" id={t.id} className="card p-3" disabled={readOnly}>
-                                <Link href={taskPath(t)} className="text-sm font-medium hover:underline">{t.title}</Link>
-                                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                                <Link href={taskPath(t)} className={`text-sm font-medium hover:underline ${t.status === "done" ? "text-muted line-through" : ""}`}>{t.title}</Link>
+                                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <DueDate date={t.due_date} today={today} done={t.status === "done"} />
-                                  <span>{personName(t.assignee_id, t.assignee_name, "Sin asignar")}</span>
                                   <PriorityBadge priority={t.priority} />
                                 </p>
-                                {!readOnly && <div className="mt-2">
-                                  <TaskStatusSelect id={t.id} value={t.status} label={`Mover «${t.title}» a otro estado`} />
-                                </div>}
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
+                                  <span className={`inline-flex min-w-0 items-center gap-1.5 text-[13px] font-semibold ${t.assignee_id ? "" : "text-muted"}`}>
+                                    <Avatar name={t.assignee_id ? personName(t.assignee_id, t.assignee_name, "") : null} />
+                                    <span className="truncate">{personName(t.assignee_id, t.assignee_name, "Sin asignar")}</span>
+                                  </span>
+                                  {!readOnly && <TaskStatusSelect id={t.id} value={t.status} label={`Mover «${t.title}» a otro estado`} />}
+                                </div>
                               </Draggable>
                             </li>
                           ))}

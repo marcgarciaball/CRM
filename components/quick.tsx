@@ -53,13 +53,13 @@ export function TaskStatusSelect({ id, value, label }: { id: string; value: Task
   const { send, pending, error } = useQuick("task");
   const [shown, setShown] = useOptimistic(value);
   return (
-    <span className="inline-flex w-30 shrink-0 flex-col">
+    <span className="inline-flex w-34 shrink-0 flex-col">
       <span className="relative">
         <select aria-label={label} title={label} className={`status-field ${TONE_CLASS[TASK_TONE[shown]]}`} value={shown} disabled={pending} aria-busy={pending}
           onChange={(e) => { const next = e.target.value as TaskStatus; startTransition(() => { setShown(next); send(id, "status", next); }); }}>
           {TASK_STATUSES.map((s) => <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>)}
         </select>
-        <ChevronDown size={14} aria-hidden className={`pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 ${TASK_TONE[shown] === "info" ? "text-white" : ""}`} />
+        <ChevronDown size={14} aria-hidden className={`pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 ${TASK_TONE[shown] === "info" ? "text-white" : ""}`} />
       </span>
       {error && <span role="alert" className="text-xs text-st-danger-fg">{error}</span>}
     </span>

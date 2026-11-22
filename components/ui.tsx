@@ -37,6 +37,17 @@ export const CampaignStatusBadge = ({ status }: { status: CampaignStatus }) => (
   <Badge tone={status === "active" ? "info" : status === "completed" ? "ok" : "neutral"}>{CAMPAIGN_STATUS_LABEL[status]}</Badge>
 );
 
+/**
+ * Inicial de una persona en un cuadrado negro (como en la barra superior). Sin persona: cuadrado discontinuo,
+ * para que lo que está sin asignar salte a la vista.
+ */
+export function Avatar({ name, size = "sm" }: { name: string | null; size?: "sm" | "xs" }) {
+  const box = size === "xs" ? "size-5 text-[10px]" : "size-6 text-[11px]";
+  return name
+    ? <span aria-hidden className={`inline-flex shrink-0 items-center justify-center bg-ink font-bold text-white ${box}`}>{name.slice(0, 1).toUpperCase()}</span>
+    : <span aria-hidden className={`inline-flex shrink-0 border border-dashed border-muted ${box}`} />;
+}
+
 /** Cabecera contextual de página con la acción principal. */
 export function PageHeader({ title, eyebrow, actions, children }: { title: string; eyebrow?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   return (
