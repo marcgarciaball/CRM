@@ -1,15 +1,17 @@
-import { addDays, todayMadrid } from "../dates";
-import type { Driver } from "../db/types";
+import { addDays, addMonths, monthOf, monthRange, todayMadrid } from "../dates";
+import type { Driver, Q } from "../db/types";
 import { runAsUser } from "../db/user";
 import { createCampaign } from "../services/campaigns";
 import { addComment } from "../services/core";
 import { createDeliverable, transitionDeliverable, updateDeliverable } from "../services/deliverables";
 import { addNewLink, attachResource, createResource } from "../services/resources";
+import { replaceMetaAds, upsertMonthly } from "../services/results";
+import { MONTHLY_FIELDS, type MetaAdRow, type MonthlyRow } from "../results/columns";
 import { createTask, setTaskStatus } from "../services/tasks";
 
 /**
  * DATOS FICTICIOS para la demo local (PGlite). No se ejecuta nunca contra Supabase.
- * Personas con emails @demo.invalid, enlaces a example.com y ninguna cifra de negocio.
+ * Personas con emails @demo.invalid, enlaces a example.com y cifras de ventas inventadas (solo en «Tienda Demo»).
  * Las fechas son relativas a hoy para que la demo tenga contenido en el mes actual.
  */
 export async function seedDemo(driver: Driver) {
@@ -155,4 +157,51 @@ export async function seedDemo(driver: Driver) {
   // Trabajo suelto y sin fecha
   await as("maite", (q) => createDeliverable(q, { client_id, title: "Landing: packs de boda", channel: "landing", campaign_id: bodas, owner_id: id.maite, planned_date: null }));
   await as("maite", (q) => createResource(q, { client_id, title: "Guía de marca (enlace de demo)", url: demo("guia-de-marca"), category: "document", description: "Recurso general, sin asociar a ningún trabajo." }));
+
+  await seedResults(tienda, today, (fn) => as("ecommerce", fn));
+}
+
+/**
+ * Resultados INVENTADOS de «Tienda Demo»: histórico desde enero del año pasado hasta el mes actual (parcial),
+ * gasto de Meta en los últimos 8 meses y una campaña pasada para verla sobre la gráfica. «Estudio Demo» queda vacío.
+ */
+async function seedResults(clientId: string, today: string, as: <T>(fn: (q: Q) => Promise<T>) => Promise<T>) {
+  const current = monthOf(today);
+  const first = `${Number(today.slice(0, 4)) - 1}-01`;
+  const months: string[] = [];
+  for (let m = first; m <= current; m = addMonths(m, 1)) months.push(m);
+  const blank = Object.fromEntries(MONTHLY_FIELDS.map((f) => [f, null])) as Record<(typeof MONTHLY_FIELDS)[number], null>;
+  const monthly: MonthlyRow[] = months.map((month, i) => {
+    const season = [0.8, 0.7, 0.9, 1, 1.1, 1.2, 1.4, 1.2, 1, 0.9, 1.3, 1.6][Number(month.slice(5)) - 1];
+    const partial = month === current ? Math.min(1, Number(today.slice(8)) / 30) : 1;
+    const pedidos = Math.round((20 + i * 6) * season * partial);
+    const totales = pedidos * (42 + (i % 5) * 2);
+    const sesiones = Math.round(pedidos * 32);
+    const nuevos = Math.round(pedidos * 0.8);
+    return {
+      ...blank, month, data_until: month === current ? today : null,
+      ventas_brutas: Math.round(totales * 1.04), descuentos: -Math.round(totales * (i % 4 === 0 ? 0.09 : 0.03)), devoluciones: -Math.round(totales * 0.01),
+      ventas_netas: totales - Math.round(totales * 0.05), envios: pedidos * 4, ventas_totales: totales, pedidos,
+      pedido_medio_shopify: Math.round((totales / Math.max(1, pedidos)) * 100) / 100, articulos: pedidos * 2,
+      sesiones, sesiones_carrito: Math.round(sesiones * 0.08), sesiones_checkout: Math.round(sesiones * 0.05), sesiones_compra: pedidos,
+      conversion: Math.round((pedidos / Math.max(1, sesiones)) * 10000) / 10000,
+      ventas_google_bing_org: Math.round(totales * 0.3), ventas_directo: Math.round(totales * 0.3), ventas_instagram_sin_pago: Math.round(totales * 0.15),
+      ventas_meta_pago_utm: Math.round(totales * 0.05), ventas_email: Math.round(totales * 0.05), ventas_otros: Math.round(totales * 0.03),
+      ventas_sin_atribuir: Math.round(totales * 0.12), clientes_nuevos: nuevos, clientes_recurrentes: pedidos - nuevos,
+      ventas_clientes_nuevos: Math.round(totales * 0.78), ventas_clientes_recurrentes: Math.round(totales * 0.22),
+    };
+  });
+  const campaigns = ["Ventas | Novedades (demo)", "Remarketing | Genérico (demo)"];
+  const meta: MetaAdRow[] = months.slice(-9, -1).flatMap((month, i) => campaigns.map((campaign_name, k) => ({
+    month, campaign_name, ad_name: "Anuncio (demo)",
+    reach: 4000 + i * 500, impressions: 9000 + i * 1200, clicks: 200 + i * 30,
+    spend: 60 + i * 15 + k * 25, purchases: k === 0 && i > 2 ? 10 + i : null,
+  })));
+  await as((q) => upsertMonthly(q, clientId, monthly));
+  await as((q) => replaceMetaAds(q, clientId, meta));
+  const past = addMonths(current, -4);
+  await as((q) => createCampaign(q, {
+    client_id: clientId, name: "Rebajas de temporada (demo)", objective: "Campaña pasada para ver su efecto en Resultados.",
+    start_date: `${past}-05`, end_date: monthRange(addMonths(past, 1)).last, owner_id: null, status: "completed",
+  }));
 }

@@ -41,4 +41,19 @@ describe("datos de la demo", () => {
     const statuses = (await sys<{ status: string }>("select distinct status from deliverables")).map((r) => r.status);
     expect(statuses).toEqual(expect.arrayContaining(["waiting_client", "on_hold", "discarded", "in_review"]));
   });
+
+  it("resultados inventados solo en la tienda: meses hasta el actual (este, parcial) y gasto de Meta", async () => {
+    const rows = await sys<{ name: string; months: number; partial: number; meta_months: number }>(
+      `select cl.name,
+              (select count(*)::int from client_metrics_monthly m where m.client_id = cl.id) as months,
+              (select count(*)::int from client_metrics_monthly m where m.client_id = cl.id and m.data_until is not null) as partial,
+              (select count(distinct month)::int from client_meta_ads a where a.client_id = cl.id) as meta_months
+         from clients cl order by cl.name`);
+    const [estudio, tienda] = rows;
+    expect(estudio).toMatchObject({ name: "Estudio Demo", months: 0, meta_months: 0 });
+    expect(tienda.name).toBe("Tienda Demo");
+    expect(tienda.months).toBeGreaterThanOrEqual(18);
+    expect(tienda.partial).toBe(1);
+    expect(tienda.meta_months).toBeGreaterThanOrEqual(6);
+  });
 });

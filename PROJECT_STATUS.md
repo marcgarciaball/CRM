@@ -1,8 +1,28 @@
 # Estado del proyecto · Workspace
 
-Actualizado: 2026-11-13
+Actualizado: 2026-11-22
 
 (Antes «Amapola Workspace». Las notas de historial de más abajo conservan los nombres de su momento.)
+
+## Panel de resultados (2026-11-22)
+- Pestaña **Resultados** en cada cliente (`/c/<cliente>/resultados`): ventas, pedidos, pedido medio, descuentos,
+  inversión en Meta (y % sobre ventas), conversión, clientes nuevos y que repiten; gráficas por mes (ventas frente al
+  mismo mes del año anterior, inversión en Meta, origen de las ventas, clientes), campañas del CRM como franjas por
+  fechas, tabla de campañas de Meta, tabla mes a mes y «Datos que faltan». Diseño:
+  `docs/superpowers/specs/2026-11-22-panel-resultados-design.md`; plan: `docs/superpowers/plans/2026-11-22-panel-resultados.md`.
+- Datos en `client_metrics_monthly` y `client_meta_ads` (migración `20261122000010_results.sql`), cargados con
+  «Importar CSV»: el histórico mensual (formato de `strategy/historico-mensual-2025-2026.csv`, columna opcional
+  `datos_hasta` para meses a medias) y el informe de Meta por campaña, anuncio y mes. Las columnas `meta_*` del
+  mensual se ignoran: Meta sale solo de su informe. Lo ve todo el equipo del cliente; importa cualquiera; borra todo
+  solo la Propiedad.
+- Comparación con el año anterior solo sobre los meses con dato completo en los dos años, indicando el tramo.
+- Las cifras reales (`strategy/`, ignorada por git) **no se han importado**: hay que subirlas desde la pestaña.
+  La demo tiene cifras inventadas en «Tienda Demo»; «Estudio Demo» muestra el estado vacío.
+- Verificado: `npm run check` (200 pruebas, build), lectura correcta de los dos archivos reales de `strategy/` (19 meses;
+  140 filas de Meta, 5.532,07 €) sin guardarlos, y la demo por HTTP (Propiedad 200 con cifras, huecos, campañas y
+  «Borrar»; miembro sin «Borrar»; cliente vacío con estado vacío; persona ajena 404; `?periodo=12m` y periodo no válido 200).
+  NO verificado: nada en navegador (aspecto de las gráficas, ventana de importar, subida real de archivo, móvil con 6
+  pestañas) ni contra Supabase real.
 
 ## Resumen (multi-cliente, Google y rediseño, tareas 1–10 terminadas)
 - **Clientes y acceso**: todo el trabajo pertenece a un cliente; cada persona solo ve los clientes en los que está.
