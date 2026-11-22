@@ -7,8 +7,8 @@ const TD = "border-b border-line px-2 py-1.5 font-mono text-[13px] whitespace-no
 const NUM = `${TD} text-right`;
 
 /** Campañas de Meta del periodo. Las compras son las que cuenta Meta, no pedidos de Shopify. */
-export function MetaCampaignsTable({ campaigns }: { campaigns: MetaCampaign[] }) {
-  if (campaigns.length === 0) return <p className="py-2 text-sm text-muted">No hay campañas de Meta en este periodo.</p>;
+export function MetaCampaignsTable({ campaigns, empty = "No hay campañas de Meta en este periodo." }: { campaigns: MetaCampaign[]; empty?: string }) {
+  if (campaigns.length === 0) return <p className="py-2 text-sm text-muted">{empty}</p>;
   return (
     <>
       <div className="overflow-x-auto">

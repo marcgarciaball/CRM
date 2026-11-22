@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CampaignStatusBadge, Empty, PageHeader } from "@/components/ui";
+import { CampaignStatusBadge, Empty, PageHeader, Tabs } from "@/components/ui";
+import { MetaCampaignsTable } from "@/components/results/tables";
 import { formatDate, todayMadrid } from "@/lib/dates";
 import { personName } from "@/lib/labels";
 import { loadClient } from "@/lib/load";
@@ -8,19 +9,40 @@ import { campaignPath, clientPath } from "@/lib/paths";
 import { one, type SearchParams } from "@/lib/params";
 import { ProgressBar } from "@/components/progress";
 import { listCampaigns } from "@/lib/services/campaigns";
+import { listMetaCampaigns } from "@/lib/services/results";
 
 export const metadata: Metadata = { title: "Campañas" };
 
 export default async function CampaignsPage({ params, searchParams }: { params: Promise<{ client: string }>; searchParams: SearchParams }) {
-  const archived = one((await searchParams).archivo) === "1";
-  const { campaigns, client } = await loadClient((await params).client, async (q, _user, client) => ({
-    campaigns: await listCampaigns(q, { archived, client: client.id }),
+  const sp = await searchParams;
+  const meta = one(sp.vista) === "meta";
+  const archived = !meta && one(sp.archivo) === "1";
+  const { campaigns, metaCampaigns, client } = await loadClient((await params).client, async (q, _user, client) => ({
+    campaigns: meta ? [] : await listCampaigns(q, { archived, client: client.id }),
+    // Todo el histórico importado, no un periodo: la pestaña no tiene selector de años.
+    metaCampaigns: meta ? await listMetaCampaigns(q, client.id, "2000-01", "2100-12") : [],
   }));
   const base = clientPath(client.id, "campanas");
   const today = todayMadrid();
+  const views = [
+    { key: "crm", label: "Campañas del CRM", href: base },
+    { key: "meta", label: "Campañas de Meta", href: `${base}?vista=meta` },
+  ];
+  const tabs = <Tabs tabs={views} current={meta ? "meta" : "crm"} />;
+  if (meta) {
+    return (
+      <>
+        <PageHeader title="Campañas" />
+        {tabs}
+        <p className="mb-3 text-sm text-muted">Campañas de anuncios que vienen del informe de Meta importado en <Link href={clientPath(client.id, "resultados")} className="link">Resultados</Link>. No son campañas del CRM: solo muestran las cifras.</p>
+        <MetaCampaignsTable campaigns={metaCampaigns} empty="Aún no hay informe de Meta importado. Súbelo desde Resultados con «Importar CSV»." />
+      </>
+    );
+  }
   return (
     <>
       <PageHeader title={archived ? "Campañas archivadas" : "Campañas"} actions={!client.archived_at && <Link href={clientPath(client.id, "campanas", "nueva")} className="btn btn-primary">Nueva campaña</Link>} />
+      {tabs}
       {campaigns.length === 0 ? (
         <div className="border-y border-ink py-2"><Empty>{archived ? "No hay campañas archivadas." : "Aún no hay campañas. Crea la primera o usa la plantilla de newsletter."}</Empty></div>
       ) : (
