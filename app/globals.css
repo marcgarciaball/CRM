@@ -92,6 +92,10 @@ summary::-webkit-details-marker {
   .chip-field {
     @apply max-w-40 cursor-pointer border border-transparent bg-transparent px-1.5 py-1 text-[13px] text-ink hover:border-ink hover:bg-surface focus:border-ink focus:bg-surface disabled:opacity-60;
   }
+  /* Estado editable dentro de listas: la misma insignia (mono, mayúsculas, color del estado) con una flecha. */
+  .status-field {
+    @apply w-full cursor-pointer appearance-none rounded-sm py-1 pr-6 pl-2 font-mono text-xs font-medium tracking-wide uppercase outline-offset-1 hover:outline hover:outline-ink disabled:cursor-wait disabled:opacity-60;
+  }
   .btn {
     @apply inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 border border-ink px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50;
   }

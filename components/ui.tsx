@@ -28,7 +28,7 @@ export const DELIVERABLE_TONE: Record<DeliverableStatus, Tone> = {
 export const DeliverableStatusBadge = ({ status }: { status: DeliverableStatus }) => (
   <Badge tone={DELIVERABLE_TONE[status]}>{DELIVERABLE_STATUS_LABEL[status]}</Badge>
 );
-const TASK_TONE: Record<TaskStatus, Tone> = { todo: "neutral", in_progress: "info", blocked: "danger", done: "ok" };
+export const TASK_TONE: Record<TaskStatus, Tone> = { todo: "neutral", in_progress: "info", blocked: "danger", done: "ok" };
 export const TaskStatusBadge = ({ status }: { status: TaskStatus }) => <Badge tone={TASK_TONE[status]}>{TASK_STATUS_LABEL[status]}</Badge>;
 export const PriorityBadge = ({ priority }: { priority: Priority }) =>
   priority === "medium" ? null : <Badge tone={priority === "high" ? "danger" : "outline"}>Prioridad {PRIORITY_LABEL[priority].toLowerCase()}</Badge>;

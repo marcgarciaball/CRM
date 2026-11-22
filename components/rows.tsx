@@ -1,16 +1,14 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
-import { TASK_STATUS_LABEL, personName } from "@/lib/labels";
+import { personName } from "@/lib/labels";
 import { campaignPath, deliverablePath, taskPath } from "@/lib/paths";
 import type { Deliverable } from "@/lib/services/deliverables";
 import type { Material } from "@/lib/services/resources";
 import type { Task } from "@/lib/services/tasks";
 import { MaterialChip } from "./materials";
 import { peopleOptions } from "@/lib/people";
-import { QuickDate, QuickSelect } from "./quick";
-import { ChannelBadge, DeliverableStatusBadge, PriorityBadge, options } from "./ui";
-
-const TASK_STATUS_OPTIONS = options(TASK_STATUS_LABEL);
+import { QuickDate, QuickSelect, TaskStatusSelect } from "./quick";
+import { ChannelBadge, DeliverableStatusBadge, PriorityBadge, TaskStatusBadge } from "./ui";
 
 /** Materiales agrupados por registro, para listas y calendario. */
 export function groupMaterials(materials: Material[]) {
@@ -77,8 +75,8 @@ export async function TaskItem({ task, today, materials, showAssignee = true, re
   return (
     <li className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line py-2.5 last:border-b-0">
       {readOnly
-        ? <span className="text-[13px] text-muted">{TASK_STATUS_LABEL[task.status]}</span>
-        : <QuickSelect kind="task" id={task.id} field="status" value={task.status} options={TASK_STATUS_OPTIONS} label={`Estado de «${task.title}»`} />}
+        ? <span className="w-30 shrink-0"><TaskStatusBadge status={task.status} /></span>
+        : <TaskStatusSelect id={task.id} value={task.status} label={`Estado de «${task.title}»`} />}
       <div className="min-w-48 flex-1">
         <Link href={taskPath(task)} className={`font-medium hover:underline ${done ? "text-muted line-through" : ""}`}>{task.title}</Link>
         {task.priority === "high" && <span className="ml-2"><PriorityBadge priority={task.priority} /></span>}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { FilterBar } from "@/components/filter-bar";
 import { DeliverableItem, DueDate, TaskItem } from "@/components/rows";
 import { Empty, PageHeader, PriorityBadge, Tabs, options } from "@/components/ui";
-import { Draggable, DropZone, QuickSelect } from "@/components/quick";
+import { Draggable, DropZone, TaskStatusSelect } from "@/components/quick";
 import { todayMadrid } from "@/lib/dates";
 import { CHANNELS, CHANNEL_LABEL, DELIVERABLE_STATUSES, DELIVERABLE_STATUS_LABEL, PRIORITIES, PRIORITY_LABEL, TASK_STATUSES, TASK_STATUS_LABEL, personName } from "@/lib/labels";
 import { formOptions, loadClient } from "@/lib/load";
@@ -87,8 +87,8 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
                                   <span>{personName(t.assignee_id, t.assignee_name, "Sin asignar")}</span>
                                   <PriorityBadge priority={t.priority} />
                                 </p>
-                                {!readOnly && <div className="mt-1 -ml-1.5">
-                                  <QuickSelect kind="task" id={t.id} field="status" value={t.status} options={options(TASK_STATUS_LABEL)} label={`Mover «${t.title}» a otro estado`} />
+                                {!readOnly && <div className="mt-2">
+                                  <TaskStatusSelect id={t.id} value={t.status} label={`Mover «${t.title}» a otro estado`} />
                                 </div>}
                               </Draggable>
                             </li>

@@ -7,12 +7,12 @@ import { ArchiveControls } from "@/components/danger-zone";
 import { Comments, History } from "@/components/discussion";
 import { TaskFields } from "@/components/forms";
 import { MaterialsSection } from "@/components/materials";
-import { QuickDate, QuickSelect } from "@/components/quick";
+import { QuickDate, QuickSelect, TaskStatusSelect } from "@/components/quick";
 import { DueDate } from "@/components/rows";
-import { Badge, Collapsed, PageHeader, PriorityBadge, Section, options } from "@/components/ui";
+import { Badge, Collapsed, PageHeader, PriorityBadge, Section, TaskStatusBadge } from "@/components/ui";
 import { todayMadrid } from "@/lib/dates";
 import { isUuid } from "@/lib/form";
-import { TASK_STATUS_LABEL, personName } from "@/lib/labels";
+import { personName } from "@/lib/labels";
 import { formOptions, loadClient } from "@/lib/load";
 import { campaignPath, clientPath, deliverablePath } from "@/lib/paths";
 import { listActivity, listComments, listProfiles } from "@/lib/services/core";
@@ -45,13 +45,13 @@ export default async function TaskPage({ params }: { params: Promise<{ client: s
         <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
           {readOnly ? (
             <>
-              <Badge tone="neutral">{TASK_STATUS_LABEL[task.status]}</Badge>
+              <TaskStatusBadge status={task.status} />
               <span>{personName(task.assignee_id, task.assignee_name, "Sin asignar")}</span>
               <span className="text-muted">Fecha límite:</span> <DueDate date={task.due_date} today={today} done={task.status === "done"} />
             </>
           ) : (
             <>
-              <QuickSelect kind="task" id={id} field="status" value={task.status} options={options(TASK_STATUS_LABEL)} label="Estado" />
+              <TaskStatusSelect id={id} value={task.status} label="Estado" />
               <QuickSelect kind="task" id={id} field="assignee_id" value={task.assignee_id} options={people} empty="Sin asignar" label="Asignada a" />
               <span className="text-muted">Fecha límite:</span>
               <QuickDate kind="task" id={id} field="due_date" value={task.due_date} label="Fecha límite" danger={!!task.due_date && task.status !== "done" && task.due_date < today} />

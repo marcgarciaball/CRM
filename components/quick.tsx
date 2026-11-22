@@ -1,15 +1,16 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useOptimistic, useRef, useState, type DragEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { addLinkAction } from "@/app/actions/materials";
 import { createDeliverableAction, createTaskAction, quickDeliverableAction, quickTaskAction } from "@/app/actions/work";
 import type { ActionState } from "@/lib/action";
-import { CHANNELS, CHANNEL_LABEL } from "@/lib/labels";
+import { CHANNELS, CHANNEL_LABEL, TASK_STATUSES, TASK_STATUS_LABEL, type TaskStatus } from "@/lib/labels";
 import { QUICK_CREATE_PARAM, quickCreatePath } from "@/lib/paths";
 import { ActionForm } from "./action-form";
+import { TASK_TONE, TONE_CLASS } from "./ui";
 
 type Action = (prev: ActionState, fd: FormData) => Promise<ActionState>;
 type Option = { id: string; label: string };
@@ -39,6 +40,27 @@ export function QuickSelect({ kind, id, field, value, options, label, empty }: {
         {empty !== undefined && <option value="">{empty}</option>}
         {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </select>
+      {error && <span role="alert" className="text-xs text-st-danger-fg">{error}</span>}
+    </span>
+  );
+}
+
+/**
+ * Estado de una tarea como insignia editable: el color del estado se ve de un vistazo y cambia en cuanto se elige
+ * otro (si falla el guardado, vuelve al anterior). Ancho fijo para que los títulos de la lista queden alineados.
+ */
+export function TaskStatusSelect({ id, value, label }: { id: string; value: TaskStatus; label: string }) {
+  const { send, pending, error } = useQuick("task");
+  const [shown, setShown] = useOptimistic(value);
+  return (
+    <span className="inline-flex w-30 shrink-0 flex-col">
+      <span className="relative">
+        <select aria-label={label} title={label} className={`status-field ${TONE_CLASS[TASK_TONE[shown]]}`} value={shown} disabled={pending} aria-busy={pending}
+          onChange={(e) => { const next = e.target.value as TaskStatus; startTransition(() => { setShown(next); send(id, "status", next); }); }}>
+          {TASK_STATUSES.map((s) => <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>)}
+        </select>
+        <ChevronDown size={14} aria-hidden className={`pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 ${TASK_TONE[shown] === "info" ? "text-white" : ""}`} />
+      </span>
       {error && <span role="alert" className="text-xs text-st-danger-fg">{error}</span>}
     </span>
   );
