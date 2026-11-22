@@ -72,7 +72,7 @@ export default async function TaskPage({ params }: { params: Promise<{ client: s
         <div className="min-w-0">
           <MaterialsSection target={{ type: "task", id }} clientId={client.id} readOnly={readOnly} />
           <Section title="Descripción y datos">
-            {task.description && <p className="mb-3 text-sm break-words whitespace-pre-wrap">{task.description}</p>}
+            {task.description && <p className="font-read mb-3 text-sm break-words whitespace-pre-wrap">{task.description}</p>}
             {readOnly ? !task.description && <p className="text-sm text-muted">Sin descripción.</p> : (
               <details open={!task.description}>
                 <summary className="more">Editar la tarea</summary>

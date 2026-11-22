@@ -76,7 +76,7 @@ function MaterialRow({ m, target, clientId, usages, editable }: { m: Material; t
           </details>
         )}
       </div>
-      {m.description && <p className="mt-0.5 text-sm text-muted">{m.description}</p>}
+      {m.description && <p className="font-read mt-0.5 text-sm text-muted">{m.description}</p>}
       {(mine.length > (editable ? 1 : 0) || m.content_updated_at) && (
         <p className="mt-0.5 text-xs text-muted">
           {m.content_updated_at && <>Actualizado el <span className="font-mono">{formatInstant(m.content_updated_at)}</span>. </>}

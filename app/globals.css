@@ -15,13 +15,16 @@
   - Esquinas cuadradas (0) en tarjetas, campos y botones; 2px en insignias (`rounded-sm`). Sin sombras ni
     desenfoques: reglas negras de 1–2px. Por eso se anulan aquí los radios del tema de Tailwind: cualquier clase de
     radio que quede en una pantalla sale cuadrada (salvo los círculos, que no dependen del tema).
-  - Archivo para el texto y los títulos (800, grande y apretado); IBM Plex Mono para fechas, recuentos, estados y
-    antetítulos.
+  - Archivo para la interfaz y los títulos (800, grande y apretado); Helvetica (`font-read`) para el texto que se lee
+    o se escribe largo (descripciones de tareas, brief, copy, comentarios, recursos); IBM Plex Mono para fechas,
+    recuentos, estados y antetítulos.
   - Estados: cinco familias, siempre con su etiqueta (nunca solo el color).
 */
 @theme {
   --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Lectura: descripciones, brief, copy, comentarios y demás texto largo. */
+  --font-read: "Helvetica Neue", Helvetica, Arial, sans-serif;
 
   --color-bg: #ffffff;
   --color-surface: #ffffff;
@@ -97,6 +100,10 @@ summary::-webkit-details-marker {
     @apply w-full cursor-pointer appearance-none rounded-sm py-1 pr-8 pl-2.5 font-mono text-xs font-medium tracking-wide uppercase outline-offset-1 hover:outline hover:outline-ink disabled:cursor-wait disabled:opacity-60;
   }
   /* Desplegables: flecha propia con aire a la derecha (la nativa queda pegada al borde). */
+  /* Los campos de texto largo se escriben en la fuente de lectura. */
+  textarea.field {
+    font-family: var(--font-read);
+  }
   select.field,
   select.chip-field {
     appearance: none;

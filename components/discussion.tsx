@@ -18,7 +18,7 @@ export function Comments({ type, id, comments, user, isOwner, readOnly = false }
               <p className="text-xs text-muted">
                 <span className="font-semibold text-ink">{personName(c.created_by, c.author_name, "Alguien")}</span> · <span className="font-mono">{formatInstant(c.created_at)}</span>
               </p>
-              <p className="mt-0.5 text-sm break-words whitespace-pre-wrap">{c.body}</p>
+              <p className="font-read mt-0.5 text-sm break-words whitespace-pre-wrap">{c.body}</p>
               {!readOnly && (c.created_by === user.id || isOwner) && (
                 <ActionButton action={deleteCommentAction} fields={{ id: c.id }} confirm="¿Borrar este comentario?" className="mt-1 text-xs text-muted underline">
                   Borrar

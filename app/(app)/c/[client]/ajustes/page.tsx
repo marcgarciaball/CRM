@@ -48,7 +48,7 @@ export default async function ClientSettingsPage({ params }: { params: Promise<{
           </ActionForm>
         </Section>
       ) : client.description ? (
-        <Section title="Descripción"><p className="text-sm whitespace-pre-line break-words">{client.description}</p></Section>
+        <Section title="Descripción"><p className="font-read text-sm whitespace-pre-line break-words">{client.description}</p></Section>
       ) : null}
 
       <Section title="Personas" count={people.length}>

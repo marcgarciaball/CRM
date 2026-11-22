@@ -45,7 +45,7 @@ export default async function ResourcesPage({ params, searchParams }: { params: 
                     <Badge tone="outline">{CATEGORY_LABEL[r.category]}</Badge>
                     <Link href={resourcePath(r)} className="link ml-auto text-xs">{client.archived_at ? "Ver" : "Editar"}</Link>
                   </div>
-                  {r.description && <p className="mt-1 text-sm">{r.description}</p>}
+                  {r.description && <p className="font-read mt-1 text-sm">{r.description}</p>}
                   <p className="mt-1 font-mono text-xs break-all text-muted">{r.url.replace(/^https?:\/\//, "").slice(0, 100)}</p>
                   <p className="mt-1 text-xs text-muted">
                     Añadido por {personName(r.created_by, r.created_by_name, "alguien")} el <span className="font-mono">{formatInstant(r.created_at)}</span> · {mine.length === 0 ? "Recurso general (sin asociar)" : <UsageList usages={mine} clientId={client.id} />}

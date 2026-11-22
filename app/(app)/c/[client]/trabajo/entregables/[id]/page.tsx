@@ -103,7 +103,7 @@ export default async function DeliverablePage({ params }: { params: Promise<{ cl
         </div>
         <div className="min-w-0">
           {d.brief && (
-            <Section title="Brief"><p className="text-sm break-words whitespace-pre-wrap">{d.brief}</p></Section>
+            <Section title="Brief"><p className="font-read text-sm break-words whitespace-pre-wrap">{d.brief}</p></Section>
           )}
           <Section title="Tareas" count={tasks.length}
             actions={!readOnly && <Link href={`${clientPath(client.id, "trabajo", "tareas", "nueva")}?entregable=${id}`} className="btn btn-secondary btn-sm">+ Tarea</Link>}>

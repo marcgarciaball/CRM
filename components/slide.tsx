@@ -17,7 +17,7 @@ import { Badge, DeliverableStatusBadge, ExternalLink, Field, SelectField, option
 export function Linkified({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s<>"']+)/g);
   return (
-    <p className="text-sm break-words whitespace-pre-wrap">
+    <p className="font-read text-sm break-words whitespace-pre-wrap">
       {parts.map((part, i) => (i % 2 === 1 ? <ExternalLink key={i} href={part} className="link break-all">{part}</ExternalLink> : part))}
     </p>
   );

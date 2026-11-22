@@ -69,7 +69,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ clien
           </Section>
         </div>
         <div className="min-w-0">
-          {c.description && <Section title="Descripción"><p className="text-sm break-words whitespace-pre-wrap">{c.description}</p></Section>}
+          {c.description && <Section title="Descripción"><p className="font-read text-sm break-words whitespace-pre-wrap">{c.description}</p></Section>}
           {!readOnly && (
             <>
               <Collapsed title="Editar la campaña">
