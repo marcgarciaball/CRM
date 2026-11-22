@@ -38,12 +38,21 @@ export const CampaignStatusBadge = ({ status }: { status: CampaignStatus }) => (
 );
 
 /**
- * Colores de las personas: pasteles planos con la inicial en tinta y filo negro, lejos del naranja y de los fondos de
- * estado. Cada persona tiene el suyo dentro de un cliente (`Profile.color`); quien no lo tiene, en gris.
+ * Colores de las personas, sacados de la marca: el azul y la crema de la versión anterior, el naranja actual, un
+ * burdeos, un verde botella, la tinta y un gris. Colores sólidos (nada de pasteles) con la inicial en blanco o en
+ * tinta según el fondo. Cada persona tiene el suyo dentro de un cliente (`Profile.color`); quien no lo tiene, en gris claro.
  */
-export const PERSON_COLORS = ["#c9d7ff", "#fff1a8", "#b9e6e0", "#f7c6dc", "#d9c8f5", "#cfe8a9", "#bfe3f5", "#e8d5c4", "#e4e4e4"];
+export const PERSON_COLORS = [
+  { bg: "#334fb4", fg: "#ffffff" }, // azul
+  { bg: "#7a1f2b", fg: "#ffffff" }, // burdeos
+  { bg: "#ff5a00", fg: "#0a0a0a" }, // naranja
+  { bg: "#1f4d3a", fg: "#ffffff" }, // verde botella
+  { bg: "#f6e6af", fg: "#0a0a0a" }, // crema
+  { bg: "#0a0a0a", fg: "#ffffff" }, // tinta
+  { bg: "#5c5c5c", fg: "#ffffff" }, // gris
+];
 export const personColor = (color: number | null | undefined) =>
-  color == null ? "var(--color-subtle)" : PERSON_COLORS[color % PERSON_COLORS.length];
+  color == null ? { bg: "var(--color-subtle)", fg: "var(--color-ink)" } : PERSON_COLORS[color % PERSON_COLORS.length];
 /** Color de `id` en la lista de personas del cliente. */
 export const colorOf = (people: { id: string; color?: number }[], id: string | null) => people.find((p) => p.id === id)?.color;
 
@@ -54,7 +63,7 @@ export const colorOf = (people: { id: string; color?: number }[], id: string | n
 export function Avatar({ name, color, size = "sm" }: { name: string | null; color?: number; size?: "sm" | "xs" }) {
   const box = size === "xs" ? "size-5 text-[10px]" : "size-6 text-[11px]";
   return name
-    ? <span aria-hidden style={{ backgroundColor: personColor(color) }} className={`inline-flex shrink-0 items-center justify-center border border-ink font-bold text-ink ${box}`}>{name.slice(0, 1).toUpperCase()}</span>
+    ? <span aria-hidden style={{ backgroundColor: personColor(color).bg, color: personColor(color).fg }} className={`inline-flex shrink-0 items-center justify-center border border-ink font-bold ${box}`}>{name.slice(0, 1).toUpperCase()}</span>
     : <span aria-hidden className={`inline-flex shrink-0 border border-dashed border-muted ${box}`} />;
 }
 

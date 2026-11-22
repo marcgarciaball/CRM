@@ -62,7 +62,8 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
               <Link href={qs({ persona: undefined })} aria-current={!person ? "true" : undefined} className={`${chip(!person)} pl-2.5`}>Todo el equipo</Link>
               {peopleChips.map((p) => (
                 <Link key={p.id} href={qs({ persona: person === p.id ? undefined : p.id })} aria-current={person === p.id ? "true" : undefined} className={chip(person === p.id)}>
-                  <Avatar name={p.label} color={p.color} size="xs" />
+                  {/* Sobre el botón activo (negro), filo blanco para que la inicial en tinta no desaparezca. */}
+                  <span className={`inline-flex ${person === p.id ? "outline outline-white" : ""}`}><Avatar name={p.label} color={p.color} size="xs" /></span>
                   {p.id === user.id ? `${p.label} (tú)` : p.label}
                 </Link>
               ))}
