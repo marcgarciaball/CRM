@@ -56,13 +56,16 @@ export function MonthBars({ months, series, stacked, format, hasData, height = 1
   });
   const max = Math.max(0, ...totals) || 1;
   const pctOf = (v: number) => `${(Math.max(0, v) / max) * 100}%`;
+  // Apiladas: los huecos de 2px entre segmentos salen de la altura disponible, para no pasarse de la gráfica.
+  const stackScale = (height - 2 * (series.length - 1)) / max;
   const tooltip = (m: MonthView) =>
     [monthLong(m.month), ...series.map((s) => `${s.label}: ${format(s.value(m))}`), m.state === "partial" ? "(mes parcial)" : ""]
       .filter(Boolean).join(" · ");
   return (
     <figure className="overflow-x-auto">
       <div className={FRAME} role="img" aria-label={`${label}. Las cifras de cada mes están en la tabla «Mes a mes».`}>
-        <div className="relative" style={{ height }}>
+        {/* Espacio arriba para la etiqueta del máximo y la marca «parcial» (el desplazamiento horizontal recorta lo que sobresale). */}
+        <div className="pt-5"><div className="relative" style={{ height }}>
           {[0.5, 1].map((f) => (
             <div key={f} aria-hidden className="absolute inset-x-0 border-t border-line" style={{ bottom: `${f * 100}%` }}>
               <span className="absolute right-0 -top-4 bg-surface pl-1 font-mono text-[10px] text-muted">{format(max * f)}</span>
@@ -74,19 +77,24 @@ export function MonthBars({ months, series, stacked, format, hasData, height = 1
               if (!hasData(m)) return <NoData key={m.month} />;
               const partial = m.state === "partial";
               const box = (s: Series, h: string): ReactNode => (
-                <div key={s.key} className={`${s.swatch} ${partial ? "border border-dashed border-ink opacity-60" : ""}`} style={{ height: h }} />
+                <div key={s.key} data-seg={s.key} style={{ height: h }} className={`${s.swatch} ${partial ? "border border-dashed border-ink opacity-60" : ""}`} />
               );
               return (
                 <div key={m.month} title={tooltip(m)} className="relative flex h-full flex-col justify-end hover:bg-subtle">
-                  {partial && <span className="absolute -top-0.5 inset-x-0 text-center font-mono text-[9px] text-muted">parcial</span>}
+                  {partial && <span className="absolute -top-4 inset-x-0 text-center font-mono text-[9px] text-muted">parcial</span>}
                   {stacked ? (
                     <div className="flex flex-col-reverse gap-0.5">
-                      {series.filter((s) => (s.value(m) ?? 0) > 0).map((s) => box(s, `${((s.value(m) ?? 0) / max) * height}px`))}
+                      {series.filter((s) => (s.value(m) ?? 0) > 0).map((s) => box(s, `${(s.value(m) ?? 0) * stackScale}px`))}
                     </div>
                   ) : (
                     <div className="flex h-full items-end gap-0.5">
                       {series.map((s) => (
-                        <div key={s.key} className="flex h-full flex-1 items-end">{box(s, pctOf(s.value(m) ?? 0))}</div>
+                        <div key={s.key} className="flex h-full flex-1 items-end">
+                          {s.value(m) === null
+                            // Sin dato para esta serie: marca propia, para que no se lea como cero.
+                            ? <span className="w-full border border-dashed border-muted text-center font-mono text-[9px] leading-4 text-muted">s/d</span>
+                            : box(s, pctOf(s.value(m)!))}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -94,7 +102,7 @@ export function MonthBars({ months, series, stacked, format, hasData, height = 1
               );
             })}
           </div>
-        </div>
+        </div></div>
         <MonthAxis months={months} />
       </div>
     </figure>
@@ -108,6 +116,8 @@ export function CampaignBands({ months, campaigns }: { months: YearMonth[]; camp
   const first = months[0];
   const last = months.at(-1)!;
   const rows = campaigns.flatMap((c) => {
+    // El calendario también devuelve campañas sin fechas que tienen trabajo fechado: aquí no hay franja que pintar.
+    if (!c.start_date && !c.end_date) return [];
     const a = monthOf(c.start_date ?? c.end_date!);
     const b = monthOf(c.end_date ?? c.start_date!);
     if (b < first || a > last) return [];

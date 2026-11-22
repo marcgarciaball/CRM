@@ -22,18 +22,14 @@ export async function upsertMonthly(q: Q, clientId: string, rows: MonthlyRow[]):
   return { added: rows.length - replaced, replaced };
 }
 
-/** Sustituye los meses del informe de Meta que trae el archivo; los demás meses se conservan. */
+/**
+ * Sustituye los meses del informe de Meta que trae el archivo; los demás meses se conservan.
+ * Borrar e insertar van juntos en `import_meta_ads` (la base de datos no deja vaciar meses sin poner filas).
+ */
 export async function replaceMetaAds(q: Q, clientId: string, rows: MetaAdRow[]): Promise<{ rows: number; months: number }> {
-  const months = [...new Set(rows.map((r) => `${r.month}-01`))];
-  await q("select delete_meta_months($1, $2::date[])", [clientId, months]);
-  for (const r of rows) {
-    await q(
-      `insert into client_meta_ads (client_id, month, campaign_name, ad_name, reach, impressions, clicks, spend, purchases)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [clientId, `${r.month}-01`, r.campaign_name, r.ad_name, r.reach, r.impressions, r.clicks, r.spend, r.purchases],
-    );
-  }
-  return { rows: rows.length, months: months.length };
+  const payload = rows.map((r) => ({ ...r, month: `${r.month}-01` }));
+  await q("select import_meta_ads($1, $2::jsonb)", [clientId, JSON.stringify(payload)]);
+  return { rows: rows.length, months: new Set(rows.map((r) => r.month)).size };
 }
 
 export function listMonthly(q: Q, clientId: string): Promise<MonthlyRow[]> {

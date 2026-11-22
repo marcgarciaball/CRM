@@ -10,7 +10,7 @@ Actualizado: 2026-11-22
   mismo mes del año anterior, inversión en Meta, origen de las ventas, clientes), campañas del CRM como franjas por
   fechas, tabla de campañas de Meta, tabla mes a mes y «Datos que faltan». Diseño:
   `docs/superpowers/specs/2026-11-22-panel-resultados-design.md`; plan: `docs/superpowers/plans/2026-11-22-panel-resultados.md`.
-- Datos en `client_metrics_monthly` y `client_meta_ads` (migración `20261122000010_results.sql`), cargados con
+- Datos en `client_metrics_monthly` y `client_meta_ads` (migraciones `20261122000010_results.sql` y `…11_results_meta_import.sql`), cargados con
   «Importar CSV»: el histórico mensual (formato de `strategy/historico-mensual-2025-2026.csv`, columna opcional
   `datos_hasta` para meses a medias) y el informe de Meta por campaña, anuncio y mes. Las columnas `meta_*` del
   mensual se ignoran: Meta sale solo de su informe. Lo ve todo el equipo del cliente; importa cualquiera; borra todo

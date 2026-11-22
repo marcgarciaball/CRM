@@ -65,13 +65,25 @@ describe("histórico mensual", () => {
 });
 
 describe("informe de Meta", () => {
-  it("una persona del cliente sustituye meses con delete_meta_months; en un cliente ajeno, no", async () => {
+  const rows = (month: string, campaign = "Nueva") => JSON.stringify([{ month, campaign_name: campaign, ad_name: "", spend: 3 }]);
+  const importAds = (user: string, client: string, json: string) =>
+    as(user, (q) => q("select import_meta_ads($1, $2::jsonb)", [client, json]));
+
+  it("una persona del cliente sustituye los meses que trae; en un cliente ajeno, no", async () => {
     await addAd(t.sara, c.a, "2026-03-01");
     await addAd(t.sara, c.a, "2026-04-01");
-    await as(t.sara, (q) => q("select delete_meta_months($1, array['2026-03-01']::date[])", [c.a]));
-    const rows = await as(t.sara, (q) => q<{ month: string }>("select month from client_meta_ads where client_id = $1", [c.a]));
-    expect(rows.map((r) => r.month)).toEqual(["2026-04-01"]);
-    await expect(as(t.sara, (q) => q("select delete_meta_months($1, array['2026-04-01']::date[])", [c.b]))).rejects.toThrow();
+    await importAds(t.sara, c.a, rows("2026-03-01"));
+    const got = await as(t.sara, (q) => q<{ month: string; campaign_name: string }>(
+      "select month, campaign_name from client_meta_ads where client_id = $1 order by month", [c.a]));
+    expect(got).toEqual([{ month: "2026-03-01", campaign_name: "Nueva" }, { month: "2026-04-01", campaign_name: "Camp" }]);
+    await expect(importAds(t.sara, c.b, rows("2026-04-01"))).rejects.toThrow();
+  });
+
+  it("un miembro no puede vaciar el informe: ni sin filas ni con la antigua función de borrar meses", async () => {
+    await addAd(t.sara, c.a, "2026-03-01");
+    await expect(importAds(t.sara, c.a, "[]")).rejects.toThrow();
+    await expect(as(t.sara, (q) => q("select delete_meta_months($1, array['2026-03-01']::date[])", [c.a]))).rejects.toThrow();
+    expect((await sys("select 1 from client_meta_ads")).length).toBe(1);
   });
 
   it("un miembro no borra filas directamente", async () => {
@@ -85,9 +97,9 @@ describe("informe de Meta", () => {
     await expect(addAd(t.sara, c.a, "2026-03-01")).rejects.toThrow();
   });
 
-  it("delete_meta_months no funciona en un cliente archivado", async () => {
+  it("no se importa en un cliente archivado", async () => {
     await addAd(t.maite, c.a, "2026-03-01");
     await sys("update clients set archived_at = now() where id = $1", [c.a]);
-    await expect(as(t.maite, (q) => q("select delete_meta_months($1, array['2026-03-01']::date[])", [c.a]))).rejects.toThrow();
+    await expect(importAds(t.maite, c.a, rows("2026-03-01"))).rejects.toThrow();
   });
 });
