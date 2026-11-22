@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useOptimistic, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { startTransition, useActionState, useEffect, useOptimistic, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, Plus, X } from "lucide-react";
@@ -85,10 +85,10 @@ type Payload = { kind: keyof typeof QUICK; id: string };
 const MIME = "application/x-workspace";
 
 /** `disabled` (cliente archivado): el contenido sin arrastre. */
-export function Draggable({ kind, id, children, className, disabled }: Payload & { children: ReactNode; className?: string; disabled?: boolean }) {
-  if (disabled) return <div className={className}>{children}</div>;
+export function Draggable({ kind, id, children, className, style, disabled }: Payload & { children: ReactNode; className?: string; style?: CSSProperties; disabled?: boolean }) {
+  if (disabled) return <div className={className} style={style}>{children}</div>;
   return (
-    <div draggable className={`cursor-grab active:cursor-grabbing ${className ?? ""}`}
+    <div draggable style={style} className={`cursor-grab active:cursor-grabbing ${className ?? ""}`}
       onDragStart={(e) => { e.dataTransfer.setData(MIME, JSON.stringify({ kind, id })); e.dataTransfer.effectAllowed = "move"; }}>
       {children}
     </div>

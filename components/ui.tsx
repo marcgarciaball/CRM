@@ -38,13 +38,23 @@ export const CampaignStatusBadge = ({ status }: { status: CampaignStatus }) => (
 );
 
 /**
- * Inicial de una persona en un cuadrado negro (como en la barra superior). Sin persona: cuadrado discontinuo,
- * para que lo que está sin asignar salte a la vista.
+ * Colores de las personas: planos, oscuros (texto blanco con contraste AA) y lejos del naranja y de los colores de
+ * estado. Cada persona tiene el suyo dentro de un cliente (`Profile.color`); quien no lo tiene, en tinta.
  */
-export function Avatar({ name, size = "sm" }: { name: string | null; size?: "sm" | "xs" }) {
+export const PERSON_COLORS = ["#2b4acb", "#7a3db8", "#0e7490", "#be185d", "#4d7c0f", "#92400e", "#334155", "#6d28d9", "#155e75", "#9f1239"];
+export const personColor = (color: number | null | undefined) =>
+  color == null ? "var(--color-ink)" : PERSON_COLORS[color % PERSON_COLORS.length];
+/** Color de `id` en la lista de personas del cliente. */
+export const colorOf = (people: { id: string; color?: number }[], id: string | null) => people.find((p) => p.id === id)?.color;
+
+/**
+ * Inicial de una persona en un cuadrado de su color. Sin persona: cuadrado discontinuo, para que lo que está sin
+ * asignar salte a la vista.
+ */
+export function Avatar({ name, color, size = "sm" }: { name: string | null; color?: number; size?: "sm" | "xs" }) {
   const box = size === "xs" ? "size-5 text-[10px]" : "size-6 text-[11px]";
   return name
-    ? <span aria-hidden className={`inline-flex shrink-0 items-center justify-center bg-ink font-bold text-white ${box}`}>{name.slice(0, 1).toUpperCase()}</span>
+    ? <span aria-hidden style={{ backgroundColor: personColor(color) }} className={`inline-flex shrink-0 items-center justify-center font-bold text-white ${box}`}>{name.slice(0, 1).toUpperCase()}</span>
     : <span aria-hidden className={`inline-flex shrink-0 border border-dashed border-muted ${box}`} />;
 }
 

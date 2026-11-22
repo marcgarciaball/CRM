@@ -3,7 +3,11 @@ import { AppError, ConflictError } from "../errors";
 
 export const LIST_LIMIT = 500;
 
-export type Profile = { id: string; display_name: string; role: "admin" | "member"; active: boolean };
+export type Profile = {
+  id: string; display_name: string; role: "admin" | "member"; active: boolean;
+  /** Color de la persona dentro del cliente (índice de la paleta de `Avatar`); solo en `listProfiles`. */
+  color?: number;
+};
 
 export async function getProfile(q: Q, id: string): Promise<Profile | null> {
   const rows = await q<Profile>("select id, display_name, role, active from profiles where id = $1", [id]);
@@ -12,10 +16,15 @@ export async function getProfile(q: Q, id: string): Promise<Profile | null> {
 /** Personas de un cliente (vacío si quien consulta no es miembro). Por defecto, solo las activas. */
 export function listProfiles(q: Q, clientId: string, onlyActive = true): Promise<Profile[]> {
   return q<Profile>(
-    `select p.id, p.display_name, p.role, p.active
-       from client_members m join profiles p on p.id = m.user_id
-      where m.client_id = $1 and ($2::boolean is false or p.active)
-      order by p.display_name limit 100`,
+    // El color sale del orden de entrada en el cliente (contando a las personas desactivadas), así que no se repite
+    // dentro del equipo y no cambia al entrar alguien nuevo.
+    `select id, display_name, role, active, color from (
+       select p.id, p.display_name, p.role, p.active, (row_number() over (order by m.created_at, p.id) - 1)::int as color
+         from client_members m join profiles p on p.id = m.user_id
+        where m.client_id = $1
+     ) x
+      where $2::boolean is false or active
+      order by display_name limit 100`,
     [clientId, onlyActive],
   );
 }

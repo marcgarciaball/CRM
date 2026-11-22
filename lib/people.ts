@@ -8,5 +8,5 @@ import { listProfiles } from "./services/core";
 export const peopleOptions = cache(async (clientId: string) => {
   const user = await requireUser();
   const people = await withUser(user.id, (q) => listProfiles(q, clientId));
-  return people.map((p) => ({ id: p.id, label: p.display_name }));
+  return people.map((p) => ({ id: p.id, label: p.display_name, color: p.color }));
 });

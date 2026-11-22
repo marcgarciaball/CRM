@@ -283,6 +283,10 @@ describe("personas de un cliente", () => {
       expect((await as(t.sara, (q) => listProfiles(q, c.a))).map((p) => p.display_name))
         .toEqual(["Ainhoa", "Elisa", "Maite", "Responsable ecommerce", "Sara"]);
       expect((await as(t.sara, (q) => listProfiles(q, c.a, false))).map((p) => p.id)).toContain(t.inactive);
+      // Cada persona tiene su color dentro del cliente, sin repetirse (contando a las desactivadas).
+      const colors = (await as(t.sara, (q) => listProfiles(q, c.a, false))).map((p) => p.color);
+      expect(new Set(colors).size).toBe(colors.length);
+      expect(colors.every((n) => Number.isInteger(n) && n! >= 0)).toBe(true);
       expect((await as(t.sara, (q) => listProfiles(q, c.b))).length).toBe(0);
       expect((await as(t.elisa, (q) => listProfiles(q, c.b))).map((p) => p.display_name)).toEqual(["Elisa", "Responsable ecommerce"]);
 
