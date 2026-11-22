@@ -4,7 +4,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { Draggable, DropZone } from "@/components/quick";
 import { DeliverableItem, TaskItem, groupMaterials } from "@/components/rows";
 import { SlideCard } from "@/components/slide";
-import { DELIVERABLE_TONE, Empty, PageHeader, Section, TONE_CLASS, Tabs, options } from "@/components/ui";
+import { Avatar, DELIVERABLE_TONE, Empty, colorOf, PageHeader, Section, TONE_CLASS, Tabs, options } from "@/components/ui";
 import {
   addDays, addMonths, formatDate, formatDayLong, formatMonth, formatRange, isLocalDate, isYearMonth, monthGrid, monthOf, monthRange, startOfWeek, todayMadrid,
 } from "@/lib/dates";
@@ -172,9 +172,10 @@ export default async function CalendarPage({ params, searchParams }: { params: P
                         {byDay(day).map((d) => (
                           <li key={d.id}>
                             <Draggable kind="deliverable" id={d.id} disabled={readOnly}>
-                              <Link href={deliverablePath(d)} draggable={false} className={`block truncate rounded-sm px-1.5 py-1 text-xs font-medium hover:opacity-80 ${TONE_CLASS[DELIVERABLE_TONE[d.status]]} ${d.status === "discarded" ? "line-through" : ""}`}
+                              <Link href={deliverablePath(d)} draggable={false} className={`flex items-center gap-1.5 rounded-sm py-0.5 pr-1.5 pl-0.5 text-xs font-medium hover:opacity-80 ${TONE_CLASS[DELIVERABLE_TONE[d.status]]}`}
                                 title={`${d.title} · ${CHANNEL_LABEL[d.channel]} · ${personName(d.owner_id, d.owner_name, "Sin responsable")} · ${DELIVERABLE_STATUS_LABEL[d.status]}`}>
-                                {d.title}
+                                <Avatar size="xs" name={d.owner_id ? personName(d.owner_id, d.owner_name, "") : null} color={colorOf(opts.people, d.owner_id)} />
+                                <span className={`min-w-0 truncate ${d.status === "discarded" ? "line-through" : ""}`}>{d.title}</span>
                               </Link>
                             </Draggable>
                           </li>
@@ -182,9 +183,10 @@ export default async function CalendarPage({ params, searchParams }: { params: P
                         {showTasks && tasksByDay(day).map((t) => (
                           <li key={t.id}>
                             <Draggable kind="task" id={t.id} disabled={readOnly}>
-                              <Link href={taskPath(t)} draggable={false} className={`block truncate rounded-sm border border-dashed border-ink bg-surface px-1.5 py-0.5 text-xs hover:bg-subtle ${t.status === "done" ? "text-muted line-through" : ""}`}
+                              <Link href={taskPath(t)} draggable={false} className={`flex items-center gap-1.5 rounded-sm border border-dashed border-ink bg-surface py-0.5 pr-1.5 pl-0.5 text-xs hover:bg-subtle ${t.status === "done" ? "text-muted" : ""}`}
                                 title={`Tarea: ${t.title} · ${personName(t.assignee_id, t.assignee_name, "Sin asignar")}`}>
-                                {t.title}
+                                <Avatar size="xs" name={t.assignee_id ? personName(t.assignee_id, t.assignee_name, "") : null} color={colorOf(opts.people, t.assignee_id)} />
+                                <span className={`min-w-0 truncate ${t.status === "done" ? "line-through" : ""}`}>{t.title}</span>
                               </Link>
                             </Draggable>
                           </li>
