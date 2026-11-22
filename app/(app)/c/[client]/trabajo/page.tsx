@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FilterBar } from "@/components/filter-bar";
 import { DeliverableItem, DueDate, TaskItem } from "@/components/rows";
-import { Avatar, Empty, colorOf, personColor, PageHeader, PriorityBadge, Tabs, options } from "@/components/ui";
+import { Avatar, Empty, colorOf, PageHeader, PriorityBadge, Tabs, options } from "@/components/ui";
 import { Draggable, DropZone, TaskStatusSelect } from "@/components/quick";
 import { todayMadrid } from "@/lib/dates";
 import { CHANNELS, CHANNEL_LABEL, DELIVERABLE_STATUSES, DELIVERABLE_STATUS_LABEL, PRIORITIES, PRIORITY_LABEL, TASK_STATUSES, TASK_STATUS_LABEL, personName } from "@/lib/labels";
@@ -62,7 +62,7 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
               <Link href={qs({ persona: undefined })} aria-current={!person ? "true" : undefined} className={`${chip(!person)} pl-2.5`}>Todo el equipo</Link>
               {peopleChips.map((p) => (
                 <Link key={p.id} href={qs({ persona: person === p.id ? undefined : p.id })} aria-current={person === p.id ? "true" : undefined} className={chip(person === p.id)}>
-                  <span className={person === p.id ? "outline outline-white" : ""}><Avatar name={p.label} color={p.color} size="xs" /></span>
+                  <Avatar name={p.label} color={p.color} size="xs" />
                   {p.id === user.id ? `${p.label} (tú)` : p.label}
                 </Link>
               ))}
@@ -97,8 +97,7 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
                         <ul className="min-h-16 space-y-2">
                           {column.map((t) => (
                             <li key={t.id}>
-                              <Draggable kind="task" id={t.id} className="card border-l-4 p-3" disabled={readOnly}
-                                style={t.assignee_id ? { borderLeftColor: personColor(colorOf(people, t.assignee_id)) } : { borderLeftStyle: "dashed", borderLeftColor: "var(--color-muted)" }}>
+                              <Draggable kind="task" id={t.id} className="card p-3" disabled={readOnly}>
                                 <Link href={taskPath(t)} className={`text-sm font-medium hover:underline ${t.status === "done" ? "text-muted line-through" : ""}`}>{t.title}</Link>
                                 <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <DueDate date={t.due_date} today={today} done={t.status === "done"} />
