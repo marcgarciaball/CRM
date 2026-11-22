@@ -66,15 +66,17 @@ async function personOptions(clientId: string, id: string | null, name: string |
  * Fila de tarea: estado, persona y fecha se cambian aquí mismo, sin abrir la tarea.
  * `readOnly` (cliente archivado): los mismos datos como texto.
  */
-export async function TaskItem({ task, today, materials, showAssignee = true, readOnly = false }: {
-  task: Task; today: string; materials?: GroupedMaterials; showAssignee?: boolean; readOnly?: boolean;
+/** `bare`: sin `<li>` ni borde, para meterla en otra fila (lista ordenable). */
+export async function TaskItem({ task, today, materials, showAssignee = true, readOnly = false, bare = false }: {
+  task: Task; today: string; materials?: GroupedMaterials; showAssignee?: boolean; readOnly?: boolean; bare?: boolean;
 }) {
   const people = await personOptions(task.client_id, task.assignee_id, task.assignee_name);
   const color = colorOf(people, task.assignee_id);
   const done = task.status === "done";
   const context = [task.deliverable_title, task.campaign_name].filter(Boolean).join(" · ");
+  const Row = bare ? "div" : "li";
   return (
-    <li className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line py-2.5 last:border-b-0">
+    <Row className={`flex flex-wrap items-center gap-x-2 gap-y-1 py-2.5 ${bare ? "" : "border-b border-line last:border-b-0"}`}>
       {readOnly
         ? <span className="w-34 shrink-0"><TaskStatusBadge status={task.status} /></span>
         : <TaskStatusSelect id={task.id} value={task.status} label={`Estado de «${task.title}»`} />}
@@ -101,7 +103,7 @@ export async function TaskItem({ task, today, materials, showAssignee = true, re
           <QuickDate kind="task" id={task.id} field="due_date" value={task.due_date} label={`Fecha límite de «${task.title}»`} danger={!!task.due_date && !done && task.due_date < today} />
         </>
       )}
-    </li>
+    </Row>
   );
 }
 

@@ -12,7 +12,7 @@ import { addComment, deleteComment, deletePermanently, setArchived } from "@/lib
 import { createDeliverable, getDeliverable, transitionDeliverable, updateDeliverable } from "@/lib/services/deliverables";
 import { markNoticesSeen } from "@/lib/services/inbox";
 import { getResource } from "@/lib/services/resources";
-import { createTask, getTask, setTaskStatus, updateTask } from "@/lib/services/tasks";
+import { createTask, getTask, moveTask, setTaskStatus, updateTask } from "@/lib/services/tasks";
 
 type Action = (prev: ActionState, fd: FormData) => Promise<ActionState>;
 
@@ -127,6 +127,10 @@ export const quickTaskAction: Action = async (_prev, fd) =>
     const value = field === "status" ? oneOf(fd, "value", TASK_STATUSES) : field === "due_date" ? optDate(fd, "value") : optUuid(fd, "value");
     await updateTask(q, uuid(fd, "id"), null, { [field]: value });
   });
+
+/** Orden manual: coloca la tarea entre las que quedan encima (`prev`) y debajo (`next`) en la lista. */
+export const moveTaskAction: Action = async (_prev, fd) =>
+  run(async (q) => moveTask(q, uuid(fd, "id"), optUuid(fd, "prev"), optUuid(fd, "next")));
 
 export const markNoticesSeenAction: Action = async () => run(async (q, user) => markNoticesSeen(q, user.id));
 

@@ -4,6 +4,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { DeliverableItem, DueDate, TaskItem } from "@/components/rows";
 import { Avatar, Empty, colorOf, PageHeader, PriorityBadge, Tabs, options } from "@/components/ui";
 import { Draggable, DropZone, TaskStatusSelect } from "@/components/quick";
+import { SortableTasks } from "@/components/sortable-tasks";
 import { todayMadrid } from "@/lib/dates";
 import { CHANNELS, CHANNEL_LABEL, DELIVERABLE_STATUSES, DELIVERABLE_STATUS_LABEL, PRIORITIES, PRIORITY_LABEL, TASK_STATUSES, TASK_STATUS_LABEL, personName } from "@/lib/labels";
 import { formOptions, loadClient } from "@/lib/load";
@@ -25,7 +26,7 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
   const { opts, tasks, deliverables, user, client } = await loadClient((await params).client, async (q, _user, client) => ({
     opts: await formOptions(q, client.id),
     tasks: tab === "tareas"
-      ? await listTasks(q, { client: client.id, assignee: person, campaign, archived, status: enumParam(sp.estado, TASK_STATUSES), priority: enumParam(sp.prioridad, PRIORITIES) })
+      ? await listTasks(q, { client: client.id, assignee: person, campaign, archived, status: enumParam(sp.estado, TASK_STATUSES), priority: enumParam(sp.prioridad, PRIORITIES), manual: true })
       : [],
     deliverables: tab === "entregables"
       ? await listDeliverables(q, { client: client.id, owner: person, campaign, archived, status: enumParam(sp.estado, DELIVERABLE_STATUSES), channel: enumParam(sp.canal, CHANNELS) })
@@ -84,7 +85,14 @@ export default async function WorkPage({ params, searchParams }: { params: Promi
           {tasks.length === 0 ? (
             <div className="border-y border-ink py-2"><Empty>No hay tareas con estos filtros.</Empty></div>
           ) : view === "lista" ? (
-            <div className="border-y border-ink"><ul>{tasks.map((t) => <TaskItem key={t.id} task={t} today={today} readOnly={readOnly} />)}</ul></div>
+            <div className="border-y border-ink">
+              {readOnly ? <ul>{tasks.map((t) => <TaskItem key={t.id} task={t} today={today} readOnly />)}</ul> : (
+                <SortableTasks items={tasks.map((t) => ({
+                  id: t.id, label: t.title, group: t.status === "done" ? "done" : "open",
+                  node: <TaskItem task={t} today={today} bare />,
+                }))} />
+              )}
+            </div>
           ) : (
             <>
               {!readOnly && <p className="mb-2 text-xs text-muted">Arrastra una tarjeta a otra columna para cambiar su estado (o usa el selector de la tarjeta).</p>}
