@@ -56,4 +56,18 @@ describe("datos de la demo", () => {
     expect(tienda.partial).toBe(1);
     expect(tienda.meta_months).toBeGreaterThanOrEqual(6);
   });
+
+  it("rentabilidad inventada solo en la tienda: escandallo, costes fijos, ventas por producto y gastos", async () => {
+    const [row] = await sys<{ products: number; costs: number; sales_months: number; expense_months: number; estudio: number }>(
+      `select (select count(*)::int from client_products p join clients cl on cl.id = p.client_id where cl.name = 'Tienda Demo') as products,
+              (select count(*)::int from client_fixed_costs f join clients cl on cl.id = f.client_id where cl.name = 'Tienda Demo') as costs,
+              (select count(distinct month)::int from client_product_sales s join clients cl on cl.id = s.client_id where cl.name = 'Tienda Demo') as sales_months,
+              (select count(*)::int from client_monthly_expenses e join clients cl on cl.id = e.client_id where cl.name = 'Tienda Demo') as expense_months,
+              (select count(*)::int from client_products p join clients cl on cl.id = p.client_id where cl.name = 'Estudio Demo') as estudio`);
+    expect(row.products).toBeGreaterThanOrEqual(8);
+    expect(row.costs).toBeGreaterThanOrEqual(4);
+    expect(row.sales_months).toBeGreaterThanOrEqual(6);
+    expect(row.expense_months).toBeGreaterThanOrEqual(6);
+    expect(row.estudio).toBe(0);
+  });
 });

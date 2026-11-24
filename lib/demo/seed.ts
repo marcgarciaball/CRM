@@ -8,6 +8,9 @@ import { addNewLink, attachResource, createResource } from "../services/resource
 import { replaceMetaAds, upsertMonthly } from "../services/results";
 import { MONTHLY_FIELDS, type MetaAdRow, type MonthlyRow } from "../results/columns";
 import { createTask, setTaskStatus } from "../services/tasks";
+import { importProductSales, replaceFixedCosts, replaceProducts, saveExpense, saveSettings } from "../services/profit";
+import type { ProductInput } from "../profit/parse";
+import type { ProductSale } from "../profit/types";
 
 /**
  * DATOS FICTICIOS para la demo local (PGlite). No se ejecuta nunca contra Supabase.
@@ -159,6 +162,7 @@ export async function seedDemo(driver: Driver) {
   await as("maite", (q) => createResource(q, { client_id, title: "Guía de marca (enlace de demo)", url: demo("guia-de-marca"), category: "document", description: "Recurso general, sin asociar a ningún trabajo." }));
 
   await seedResults(tienda, today, (fn) => as("ecommerce", fn));
+  await seedProfit(tienda, today, (fn) => as("ecommerce", fn));
 }
 
 /**
@@ -204,4 +208,56 @@ async function seedResults(clientId: string, today: string, as: <T>(fn: (q: Q) =
     client_id: clientId, name: "Rebajas de temporada (demo)", objective: "Campaña pasada para ver su efecto en Resultados.",
     start_date: `${past}-05`, end_date: monthRange(addMonths(past, 1)).last, owner_id: null, status: "completed",
   }));
+}
+
+/**
+ * Rentabilidad INVENTADA de «Tienda Demo»: supuestos, costes fijos, escandallo de 9 productos (uno sin precio,
+ * uno con pérdidas), ventas por producto de los últimos 8 meses (con una «Botella (demo)» sin escandallo) y gastos.
+ */
+async function seedProfit(clientId: string, today: string, as: <T>(fn: (q: Q) => Promise<T>) => Promise<T>) {
+  const current = monthOf(today);
+  await as((q) => saveSettings(q, clientId, {
+    iva: 0.21, horas_productivas_anuales: 3000, precio_tela_m2: 6, tinta_m2: null, merma_tela: 0.3, reimpresion: 0.1,
+    roturas: 0.05, comision_pct: null, comision_fija_pedido: 0.3, envio_neto_pedido: null, unidades_por_pedido: 3,
+  }));
+  await as((q) => replaceFixedCosts(q, clientId, [
+    { group: "personal", concept: "Sueldos (demo)", monthly_amount: 3000, note: "", position: 0 },
+    { group: "personal", concept: "Seguridad Social (demo)", monthly_amount: 900, note: "", position: 1 },
+    { group: "estructura", concept: "Alquiler del taller (demo)", monthly_amount: 700, note: "", position: 2 },
+    { group: "estructura", concept: "Tinta (demo)", monthly_amount: 80, note: "Fija al mes", position: 3 },
+    { group: "estructura", concept: "Software y suscripciones (demo)", monthly_amount: 60, note: "", position: 4 },
+  ]));
+  const p = (position: number, family: string, format: string, price: number | null, fabric: [number, number] | null, minutes: number,
+    support: number, packaging: number, shopify: string, variant: string | null): ProductInput => ({
+    position, family, format, price, fabric_w_cm: fabric?.[0] ?? null, fabric_h_cm: fabric?.[1] ?? null, minutes,
+    support_cost: support, packaging_cost: packaging, shopify_title: shopify, variant_match: variant, active: true, note: "",
+  });
+  await as((q) => replaceProducts(q, clientId, [
+    p(0, "Lámina con clip (demo)", "A6", 14, [10.5, 14.8], 3, 0.8, 0.5, "Lámina con clip (demo)", "10x15cm"),
+    p(1, "Lámina con clip (demo)", "A5", 19, [14.8, 21], 3, 1.1, 0.5, "Lámina con clip (demo)", "15x21cm"),
+    p(2, "Lámina con clip (demo)", "A4", 28, [21, 29.7], 4, 1.5, 0.5, "Lámina con clip (demo)", "21x30cm"),
+    p(3, "Foto en tela (demo)", "A6", 9, [10.5, 14.8], 3, 0, 0.5, "Foto en tela (demo)", "10x15cm"),
+    p(4, "Foto en tela (demo)", "A5", 14, [14.8, 21], 3, 0, 0.5, "Foto en tela (demo)", "15x21cm"),
+    p(5, "Marco de madera (demo)", "20x26", 40, [20, 26], 15, 7, 3, "Marco de madera (demo)", "20x26"),
+    p(6, "Marco de madera (demo)", "42x50", 30, [42, 50], 25, 14, 6, "Marco de madera (demo)", "42x50"),
+    p(7, "Marco de cristal (demo)", "A5", 70, [14.8, 21], 10, 26, 4, "Marco de cristal (demo)", null),
+    p(8, "Ramo bordado (demo)", "", null, null, 60, 9, 1, "Ramo bordado (demo)", null),
+  ]));
+  const variants: [string, string, number, number][] = [
+    ["Lámina con clip (demo)", "10x15cm / Vertical", 14, 60], ["Lámina con clip (demo)", "15*21cm / Vertical", 19, 45],
+    ["Lámina con clip (demo)", "21x30cm", 28, 12], ["Foto en tela (demo)", "10x15cm", 9, 70], ["Foto en tela (demo)", "15x21cm", 14, 30],
+    ["Marco de madera (demo)", "20x26", 40, 8], ["Marco de madera (demo)", "42x50", 30, 3], ["Marco de cristal (demo)", "A5 foto", 70, 2],
+    ["Botella (demo)", "Vertical", 8, 25],
+  ];
+  const months = Array.from({ length: 8 }, (_, i) => addMonths(current, i - 8));
+  const sales: ProductSale[] = months.flatMap((month, i) => variants.map(([title, variant, price, base]) => {
+    const quantity = Math.round(base * (0.8 + (i % 4) * 0.1));
+    return { month, product_title: title, variant_title: variant, quantity, reversed_quantity: i % 3 === 0 ? -1 : 0,
+      net_sales: Math.round(quantity * price * 0.95 * 100) / 100, orders: Math.max(1, Math.round(quantity / 2)) };
+  }));
+  await as((q) => importProductSales(q, clientId, sales));
+  const comments = ["", "Compra de stock (demo)", "", "", "Pago trimestral (demo)", "", "", ""];
+  for (const [i, month] of months.entries()) {
+    await as((q) => saveExpense(q, clientId, { month, amount: 4500 + (i % 4) * 600 + (comments[i] ? 2500 : 0), comment: comments[i] }));
+  }
 }

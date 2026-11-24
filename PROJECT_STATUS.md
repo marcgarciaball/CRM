@@ -1,8 +1,27 @@
 # Estado del proyecto · Workspace
 
-Actualizado: 2026-11-22
+Actualizado: 2026-11-24
 
 (Antes «Amapola Workspace». Las notas de historial de más abajo conservan los nombres de su momento.)
+
+## Rentabilidad (2026-11-24)
+- Pestaña **Rentabilidad** en cada cliente (`/c/<cliente>/rentabilidad`), después de Resultados: ventas frente a gastos
+  (con IVA) por mes con comentario, costes fijos al mes, punto de equilibrio (costes fijos + gasto medio de Meta ÷ % de
+  contribución real), coste por minuto, «Qué potenciar» (margen de contribución y completo por unidad, aportación real con
+  lo cobrado, etiquetas Potenciar / Revisar precio / Poco volumen / Incompleto, productos de Shopify sin escandallo) y el
+  escandallo editable (supuestos, costes fijos, productos) y los gastos mensuales. Diseño:
+  `docs/superpowers/specs/2026-11-23-rentabilidad-design.md`; plan: `docs/superpowers/plans/2026-11-24-rentabilidad.md`.
+- Datos: migración `20261124000010_profit.sql`. Las líneas de costes fijos (salarios) solo las ve y edita la Propiedad;
+  el resto ve totales (`fixed_cost_totals`). Gastos mensuales: los ve el equipo, los edita la Propiedad. Productos y
+  supuestos: los edita el equipo; borrar y sustituir por CSV, la Propiedad («SUSTITUIR»).
+- «Importar CSV» admite el export de Shopify de ventas por producto y variante (dos meses por fila), el escandallo,
+  los costes fijos y los gastos mensuales. Los márgenes usan siempre el escandallo actual.
+- Faltan en los datos de Amapola el coste de envío y las comisiones: los márgenes salen marcados «sin envío» / «sin
+  comisiones» hasta que se rellenen en Supuestos.
+- Verificado: `npm run check` (266 pruebas, build) y la demo por HTTP (Propiedad de la tienda 200 con salarios,
+  etiquetas y «Sin escandallo»; miembro 200 sin líneas de salario y sin edición de gastos; cliente vacío; ajeno 404;
+  `?periodo=12m&orden=margen` 200). NO verificado en navegador (formularios, ventana de importar, móvil con 7 pestañas)
+  ni contra Supabase real.
 
 ## Panel de resultados (2026-11-22)
 - Pestaña **Resultados** en cada cliente (`/c/<cliente>/resultados`): ventas, pedidos, pedido medio, descuentos,

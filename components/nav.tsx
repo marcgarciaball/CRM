@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Building2, CalendarDays, ChartColumn, Home, LayoutDashboard, Link2, ListChecks, Megaphone } from "lucide-react";
+import { Building2, CalendarDays, ChartColumn, Home, LayoutDashboard, Link2, ListChecks, Megaphone, PiggyBank } from "lucide-react";
 import { clientPath } from "@/lib/paths";
 
 const itemsFor = (clientId?: string) => clientId
@@ -12,6 +12,7 @@ const itemsFor = (clientId?: string) => clientId
     { href: clientPath(clientId, "trabajo"), label: "Trabajo", icon: ListChecks },
     { href: clientPath(clientId, "campanas"), label: "Campañas", icon: Megaphone },
     { href: clientPath(clientId, "resultados"), label: "Resultados", icon: ChartColumn },
+    { href: clientPath(clientId, "rentabilidad"), label: "Rentabilidad", icon: PiggyBank },
     { href: clientPath(clientId, "recursos"), label: "Recursos", icon: Link2 },
   ]
   : [
@@ -30,7 +31,7 @@ export function MainNav({ variant, clientId }: { variant: "sidebar" | "bottom"; 
   const isActive = (href: string) => (href === items[0].href ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
   if (variant === "bottom") {
     return (
-      <nav aria-label="Principal" className={`fixed inset-x-0 bottom-0 z-30 grid border-t-2 border-ink bg-surface pb-[env(safe-area-inset-bottom)] md:hidden ${items.length === 6 ? "grid-cols-6" : "grid-cols-2"}`}>
+      <nav aria-label="Principal" className={`fixed inset-x-0 bottom-0 z-30 grid border-t-2 border-ink bg-surface pb-[env(safe-area-inset-bottom)] md:hidden ${items.length === 7 ? "grid-cols-7" : "grid-cols-2"}`}>
         {items.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
             className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 text-[10px] ${isActive(href) ? "font-bold text-ink" : "text-muted"}`}>
