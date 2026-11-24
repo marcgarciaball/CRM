@@ -140,7 +140,8 @@ Filas mes, gastos (€) y comentario («abrimos oficinas»). Se editan en la pes
 (`mes,gastos,comentario`). **Los gastos llevan IVA y los envíos de Correos (decidido con Marc)**, así que se comparan con
 las ventas **con IVA y con lo cobrado de envío**: `ventas_totales` de Resultados. Esta comparación se rotula «con IVA».
 Un mes sin ventas en Resultados sale «sin dato» (nov–dic 2025 se completan subiendo esas filas al histórico mensual de
-Resultados). Los gastos mensuales los ve y edita solo la Propiedad; el resto ve el resultado del mes (ventas − gastos).
+Resultados). Los gastos mensuales (un total por mes, sin detalle de salarios) los ve todo el equipo, porque el resultado del
+mes ya los deja deducir; solo la Propiedad los edita.
 
 ### Importación del escandallo
 
