@@ -86,4 +86,15 @@ describe("unitCost", () => {
     expect(r.full).toBeNull();
     expect(unitCost(product, settings, null).full).toBeNull();
   });
+
+  it("sin unidades por pedido, la comisión fija no se puede repartir: se marca", () => {
+    const r = unitCost(product, { ...settings, comision_pct: 0.02, envio_neto_pedido: 3, unidades_por_pedido: null }, pm);
+    expect(r.partial).toContain("comisiones");
+  });
+
+  it("una medida de tela a medias no es «sin tela»: incompleto", () => {
+    const r = unitCost({ ...product, fabric_h_cm: null }, settings, pm);
+    expect(r.status).toBe("incomplete");
+    expect(r.missing).toContain("medida de tela");
+  });
 });

@@ -36,6 +36,8 @@ export function unitCost(p: Product, s: CostSettings, pm: PerMinute): UnitCost {
   if (p.price === null) missing.push("precio");
   if (s.iva === null) missing.push("IVA");
   const hasFabric = p.fabric_w_cm !== null && p.fabric_h_cm !== null;
+  // Una sola medida es un dato a medias, no «sin tela».
+  if ((p.fabric_w_cm === null) !== (p.fabric_h_cm === null)) missing.push("medida de tela");
   if (hasFabric && s.precio_tela_m2 === null) missing.push("precio de la tela");
 
   const area = hasFabric ? (p.fabric_w_cm! * p.fabric_h_cm!) / 10_000 : 0;
@@ -45,7 +47,8 @@ export function unitCost(p: Product, s: CostSettings, pm: PerMinute): UnitCost {
   const materials = (fabric + ink + (p.support_cost ?? 0) + (p.packaging_cost ?? 0)) * (1 + pctOr0(s.roturas));
 
   const perOrder = (v: number | null) => (v !== null && s.unidades_por_pedido ? v / s.unidades_por_pedido : null);
-  if (s.comision_pct === null) partial.push("comisiones");
+  const fixedFeeLost = s.comision_fija_pedido !== null && perOrder(s.comision_fija_pedido) === null;
+  if (s.comision_pct === null || fixedFeeLost) partial.push("comisiones");
   const fees = (p.price ?? 0) * pctOr0(s.comision_pct) + (perOrder(s.comision_fija_pedido) ?? 0);
   const shippingPerUnit = perOrder(s.envio_neto_pedido);
   if (shippingPerUnit === null) partial.push("envío");

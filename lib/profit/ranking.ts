@@ -1,5 +1,6 @@
 import type { YearMonth } from "../dates";
 import type { MonthlyRow } from "../results/columns";
+import type { MonthView } from "../results/compute";
 import { unitCost, type PerMinute, type UnitCost } from "./costing";
 import { matchProduct } from "./match";
 import type { CostSettings, FixedCostTotals, Product, ProductSale } from "./types";
@@ -99,16 +100,33 @@ export function breakEven(i: { totals: FixedCostTotals; metaMonthlyAvg: number |
   };
 }
 
-export type MonthResult = { month: YearMonth; sales: number | null; expenses: number | null; result: number | null; comment: string };
+/**
+ * Gasto medio mensual en Meta: meses ya cerrados con gasto, tengan o no ventas en Resultados (como allí).
+ * El mes en curso, con solo unos días de gasto, bajaría la media.
+ */
+export function metaMonthlyAverage(months: MonthView[], current: YearMonth): number | null {
+  const spends = months.filter((m) => m.month < current && m.meta?.spend != null).map((m) => m.meta!.spend!);
+  return spends.length ? spends.reduce((a, b) => a + b, 0) / spends.length : null;
+}
+
+export type MonthResult = {
+  month: YearMonth; sales: number | null; expenses: number | null; result: number | null; comment: string;
+  /** Ventas de un mes a medias: no se comparan con los gastos del mes entero. */
+  partial: boolean;
+};
 
 /** Ventas con IVA (Resultados) frente a gastos con IVA, mes a mes. */
-export function monthlyResults(i: { months: YearMonth[]; monthly: MonthlyRow[]; expenses: { month: YearMonth; amount: number | null; comment: string }[] }): MonthResult[] {
+export function monthlyResults(i: {
+  months: YearMonth[]; monthly: MonthlyRow[]; expenses: { month: YearMonth; amount: number | null; comment: string }[]; partial?: YearMonth[];
+}): MonthResult[] {
+  const partial = new Set(i.partial ?? []);
   const sales = new Map(i.monthly.map((r) => [r.month, r.ventas_totales]));
   const exp = new Map(i.expenses.map((e) => [e.month, e]));
   return i.months.map((month) => {
     const s = sales.get(month) ?? null;
     const e = exp.get(month);
     const expenses = e?.amount ?? null;
-    return { month, sales: s, expenses, result: s !== null && expenses !== null ? s - expenses : null, comment: e?.comment ?? "" };
+    const isPartial = partial.has(month);
+    return { month, sales: s, expenses, result: s !== null && expenses !== null && !isPartial ? s - expenses : null, comment: e?.comment ?? "", partial: isPartial };
   });
 }

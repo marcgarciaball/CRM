@@ -37,7 +37,7 @@ export function Expenses({ clientId, rows, canEdit }: { clientId: string; rows: 
                     </ActionForm>
                   ) : eur0(r.expenses)}
                 </td>
-                <td className={`${TD} ${r.result !== null && r.result < 0 ? "font-bold" : ""}`}>{r.result === null ? "sin dato" : `${r.result >= 0 ? "+" : "−"}${eur0(Math.abs(r.result))}`}</td>
+                <td className={`${TD} ${r.result !== null && r.result < 0 ? "font-bold" : ""}`}>{r.partial ? "mes parcial" : r.result === null ? "sin dato" : `${r.result >= 0 ? "+" : "−"}${eur0(Math.abs(r.result))}`}</td>
                 <td className="border-b border-line px-2 py-1.5 text-sm">{r.comment}</td>
                 {canEdit && (
                   <td className="border-b border-line px-2 py-1.5">

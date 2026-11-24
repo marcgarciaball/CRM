@@ -23,6 +23,17 @@ describe("ventas por producto (export de Shopify)", () => {
   });
 });
 
+describe("ventas por producto: meses repetidos entre las dos mitades", () => {
+  it("si un mes viene como principal y como comparación, cuenta solo el principal (no se duplica)", () => {
+    const row = (month: string, prevMonth: string, net: number, prevNet: number) =>
+      `"${month}-01","A","v",,${net},0,0,${net},1,0,1,,,,"${prevMonth}-01",${prevNet},0,0,${prevNet},1,0,1,,,`;
+    const r = parseProfitCsv([SALES_HEADER, row("2026-03", "2025-03", 100, 40), row("2025-03", "2024-03", 40, 10)].join("\n"));
+    if (r?.kind !== "product_sales") throw new Error("tipo");
+    expect(r.rows.find((x) => x.month === "2025-03")?.net_sales).toBe(40);
+    expect(r.rows.map((x) => x.month).sort()).toEqual(["2024-03", "2025-03", "2026-03"]);
+  });
+});
+
 describe("escandallo de productos", () => {
   const header = "familia,formato,precio,tela_ancho_cm,tela_alto_cm,minutos,soporte,embalaje,producto_shopify,variante_contiene,activo,nota";
   it("lee cada producto en orden; vacío es sin dato; activo por defecto", () => {

@@ -82,7 +82,9 @@ export function RankingTable({ ranking }: { ranking: Ranking }) {
 
 /** Aportación real de los 15 primeros, en barras horizontales (las negativas, en su propio color y con signo). */
 export function ContributionBars({ ranking }: { ranking: Ranking }) {
-  const rows = ranking.rows.filter((r) => r.real_contribution !== null && r.units > 0).slice(0, 15);
+  // Siempre los 15 de mayor aportación, ordene como se ordene la tabla.
+  const rows = ranking.rows.filter((r) => r.real_contribution !== null && r.units > 0)
+    .sort((a, b) => b.real_contribution! - a.real_contribution!).slice(0, 15);
   if (rows.length === 0) return null;
   const max = Math.max(...rows.map((r) => Math.abs(r.real_contribution!))) || 1;
   return (

@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RankingTable } from "@/components/profit/ranking-table";
+import { ContributionBars, RankingTable } from "@/components/profit/ranking-table";
 import { Summary } from "@/components/profit/summary";
 import { perMinute } from "@/lib/profit/costing";
 import { rankProducts } from "@/lib/profit/ranking";
@@ -40,6 +40,11 @@ describe("RankingTable", () => {
   it("marca los márgenes sin comisiones ni envío", () => {
     expect(html).toContain("sin comisiones");
     expect(html).toContain("sin envío");
+  });
+  it("la gráfica de aportación no depende del orden de la tabla", () => {
+    const byUnits = { ...ranking, rows: [...ranking.rows].sort((a, b) => b.units - a.units) };
+    const titles = (r: typeof ranking) => [...renderToStaticMarkup(createElement(ContributionBars, { ranking: r })).matchAll(/<li[^>]*title="([^":]+)/g)].map((x) => x[1].split(" · ")[0]);
+    expect(titles(byUnits)).toEqual(["Buena", "Barata", "Rara", "Pérdidas"]);
   });
   it("lista lo vendido sin escandallo", () => {
     expect(html).toContain("Sin escandallo");

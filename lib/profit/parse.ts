@@ -50,6 +50,8 @@ function productSales(header: string[], body: string[][]): ParsedFrom<"product_s
   const out = new Map<string, ProductSale>();
   const compare = header.find((h) => /^Month \(\d+\)$/.test(h));
   const suffixes = ["", ...(compare ? [compare.slice("Month".length)] : [])];
+  // Un mes que el archivo trae como principal manda: si también aparece como comparación, esa copia no se suma.
+  const mainMonths = new Set(body.map((cells) => cellOf(header, cells)("Month").slice(0, 7)));
   body.forEach((cells, i) => {
     const line = i + 2;
     const get = cellOf(header, cells);
@@ -62,6 +64,7 @@ function productSales(header: string[], body: string[][]): ParsedFrom<"product_s
       const net = num(get(`Net sales${sfx}`), line, `Net sales${sfx}`);
       const qty = num(get(`Quantity ordered${sfx}`), line, `Quantity ordered${sfx}`);
       if (!net && !qty) continue;
+      if (sfx && mainMonths.has(month)) continue;
       const rev = num(get(`Reversed quantity${sfx}`), line, `Reversed quantity${sfx}`);
       const orders = num(get(`Orders${sfx}`), line, `Orders${sfx}`);
       const key = `${month}\u0000${title}\u0000${variant}`;

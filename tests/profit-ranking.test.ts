@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MONTHLY_FIELDS, type MonthlyRow } from "@/lib/results/columns";
 import { perMinute } from "@/lib/profit/costing";
 import { matchProduct, normalize } from "@/lib/profit/match";
-import { breakEven, monthlyResults, rankProducts } from "@/lib/profit/ranking";
+import { breakEven, metaMonthlyAverage, monthlyResults, rankProducts } from "@/lib/profit/ranking";
+import type { MonthView } from "@/lib/results/compute";
 import type { CostSettings, Product, ProductSale } from "@/lib/profit/types";
 
 // Cifras inventadas.
@@ -111,9 +112,27 @@ describe("monthlyResults", () => {
       expenses: [{ month: "2025-11", amount: 6500, comment: "" }, { month: "2026-04", amount: 18610, comment: "abrimos oficinas" }],
     });
     expect(r).toEqual([
-      { month: "2025-11", sales: null, expenses: 6500, result: null, comment: "" },
-      { month: "2026-04", sales: 14000, expenses: 18610, result: -4610, comment: "abrimos oficinas" },
-      { month: "2026-05", sales: null, expenses: null, result: null, comment: "" },
+      { month: "2025-11", sales: null, expenses: 6500, result: null, comment: "", partial: false },
+      { month: "2026-04", sales: 14000, expenses: 18610, result: -4610, comment: "abrimos oficinas", partial: false },
+      { month: "2026-05", sales: null, expenses: null, result: null, comment: "", partial: false },
     ]);
+  });
+});
+
+describe("metaMonthlyAverage", () => {
+  const mv = (month: string, state: MonthView["state"], spend: number | null): MonthView =>
+    ({ month, state, data_until: null, m: null, prev: null, meta: spend === null ? null : { month, spend, impressions: null, clicks: null, purchases: null } });
+  it("solo meses cerrados con gasto: el mes en curso no baja la media", () => {
+    expect(metaMonthlyAverage([mv("2026-09", "complete", 600), mv("2026-10", "missing", 400), mv("2026-11", "partial", 20), mv("2026-12", "future", null)], "2026-11")).toBe(500);
+    expect(metaMonthlyAverage([mv("2026-11", "partial", 20)], "2026-11")).toBeNull();
+  });
+});
+
+describe("monthlyResults con meses parciales", () => {
+  const blank = Object.fromEntries(MONTHLY_FIELDS.map((f) => [f, null]));
+  it("un mes parcial no da resultado: sus ventas no se comparan con los gastos del mes entero", () => {
+    const monthly = [{ ...blank, month: "2026-11", data_until: "2026-11-02", ventas_totales: 900 } as MonthlyRow];
+    const [r] = monthlyResults({ months: ["2026-11"], monthly, expenses: [{ month: "2026-11", amount: 8000, comment: "" }], partial: ["2026-11"] });
+    expect(r).toMatchObject({ sales: 900, expenses: 8000, result: null, partial: true });
   });
 });

@@ -11,7 +11,7 @@ import { loadClient } from "@/lib/load";
 import { enumParam, one, type SearchParams } from "@/lib/params";
 import { clientPath } from "@/lib/paths";
 import { perMinute } from "@/lib/profit/costing";
-import { breakEven, monthlyResults, rankProducts, type Ranking } from "@/lib/profit/ranking";
+import { breakEven, metaMonthlyAverage, monthlyResults, rankProducts, type Ranking } from "@/lib/profit/ranking";
 import { availableYears, computeResults, defaultPeriod, parsePeriod, type MonthView, type Period } from "@/lib/results/compute";
 import { eur0, monthSpan } from "@/lib/results/format";
 import {
@@ -64,10 +64,9 @@ export default async function ProfitPage({ params, searchParams }: { params: Pro
   const months = pastMonths.map((m) => m.month);
   const pm = perMinute(totals, settings);
   const ranking = sortRanking(rankProducts({ products: data.products, settings, pm, sales: data.sales, months }), sort);
-  const metaSpends = pastMonths.map((m) => m.meta?.spend).filter((v): v is number => v != null);
-  const metaMonthlyAvg = metaSpends.length ? metaSpends.reduce((a, b) => a + b, 0) / metaSpends.length : null;
+  const metaMonthlyAvg = metaMonthlyAverage(pastMonths, today.slice(0, 7));
   const be = breakEven({ totals, metaMonthlyAvg, ranking, iva: settings.iva });
-  const monthRows = monthlyResults({ months, monthly: data.monthly, expenses: data.expenses });
+  const monthRows = monthlyResults({ months, monthly: data.monthly, expenses: data.expenses, partial: pastMonths.filter((m) => m.state === "partial").map((m) => m.month) });
   const both = monthRows.filter((r) => r.result !== null);
   const sum = (f: (r: (typeof both)[number]) => number) => (both.length ? both.reduce((a, r) => a + f(r), 0) : null);
   const partialFlags = [...new Set(ranking.rows.flatMap((r) => (r.cost.status === "ok" ? r.cost.partial : [])))];
